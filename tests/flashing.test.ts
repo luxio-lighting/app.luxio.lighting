@@ -1,9 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Transport } from 'esptool-js';
-import { disconnectFlasher } from '../src/flashing';
+import { disconnectFlasher, resetFlasher } from '../src/flashing';
 import { DeviceConnection } from '../src/transport';
 import { decodeRequest, encodeResponse, frame, FrameDecoder } from '../shared/protocol/src/index';
+
+test('post-flash reset settles the bridge before pulsing EN and closing the port', async () => {
+  let bootHeld = true, resetHeld = true, idleAt = 0, resetAt = 0, bootAt = 0;
+  const port = {
+    async setSignals(signals: SerialOutputSignals) {
+      if (signals.dataTerminalReady !== undefined) bootHeld = signals.dataTerminalReady;
+      if (signals.requestToSend === undefined) return;
+      assert.equal(bootHeld, false, 'GPIO0 must stay released to boot the application');
+      if (signals.requestToSend) {
+        assert.equal(resetHeld, false, 'The bridge must leave its previous reset state first');
+        assert.ok(performance.now() - idleAt >= 190, 'Allow control lines to settle before resetting');
+        resetAt = performance.now();
+      } else if (resetAt) {
+        assert.ok(performance.now() - resetAt >= 190, 'Hold reset long enough for the bridge');
+        bootAt = performance.now();
+      } else idleAt = performance.now();
+      resetHeld = signals.requestToSend;
+    },
+  };
+  await resetFlasher(new Transport(port as unknown as SerialPort));
+  assert.equal(resetHeld, false);
+  assert.ok(bootAt > 0);
+  assert.ok(performance.now() - bootAt >= 190, 'Allow reset release to settle before disconnecting');
+});
 
 test('the actual flashing transport releases its USB lock before the app reconnects', { timeout: 2000 }, async () => {
   let opened = false, opens = 0, closes = 0, hostReady = false;

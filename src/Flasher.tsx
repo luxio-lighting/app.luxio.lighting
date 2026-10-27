@@ -3,7 +3,7 @@ import { LoaderCircle, Usb, Zap } from 'lucide-react';
 import { Modal } from './Controls';
 import { findDevice, type Light } from './model';
 import { connections } from './transport';
-import { disconnectFlasher } from './flashing';
+import { disconnectFlasher, resetFlasher } from './flashing';
 import firmwareTargets from '../shared/firmware/targets.json';
 
 export function Flasher({ close, added }: { close: () => void; added: (light: Light, configure?: boolean) => void }) {
@@ -71,10 +71,9 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       setStatus('Installing Luxio. Keep your ESP32 connected.');
       await loader.writeFlash({ fileArray: files, flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep', eraseAll: false, compress: true,
         reportProgress: (file, written, total) => setProgress(((file + written / total) / files.length) * 100) });
-      // Keep GPIO0 high and pulse EN to boot the installed application.
-      await transport.setDTR(false); await transport.setRTS(true);
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await transport.setRTS(false); await disconnectFlasher(transport); transport = undefined;
+      setStatus('Restarting Luxio…');
+      await resetFlasher(transport);
+      await disconnectFlasher(transport); transport = undefined;
       setInstalled(true); setProgress(100); setStatus('Firmware installed. Waiting for Luxio to restart…');
       const deadline = Date.now() + 60000;
       let connectionError = '';
