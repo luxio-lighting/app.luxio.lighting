@@ -3,7 +3,7 @@ import { LoaderCircle, Usb, Zap } from 'lucide-react';
 import { Modal } from './Controls';
 import { findDevice, type Light } from './model';
 import { connections } from './transport';
-import { disconnectFlasher, resetFlasher } from './flashing';
+import { checkFlashSize, disconnectFlasher, resetFlasher } from './flashing';
 import firmwareTargets from '../shared/firmware/targets.json';
 
 export function Flasher({ close, added }: { close: () => void; added: (light: Light, configure?: boolean) => void }) {
@@ -41,8 +41,8 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       const chip = loader.chip.CHIP_NAME.toLowerCase().replace(/[^a-z0-9]/g, '');
       const hardware = firmwareTargets.find(target => target.chip === chip);
       if (!hardware) throw new Error(`Unsupported chip: ${detected}. Available firmware targets: ${firmwareTargets.map(target => target.chip).join(', ')}.`);
-      const flashBytes = (await loader.getFlashSize()) * 1024;
-      if (!Number.isFinite(flashBytes) || flashBytes < hardware.minimumFlashSize) throw new Error(`Luxio for ${chip} requires at least ${hardware.minimumFlashSize / 1048576} MB of detected flash memory.`);
+      const flashBytes = await checkFlashSize(loader, hardware.minimumFlashSize);
+      setLog(previous => `${previous}\nDetected flash: ${flashBytes / 1048576} MB\n`);
       setStatus('Downloading and verifying firmware…');
       const response = await fetch(`https://api.luxio.lighting/updates?chip=${chip}&target=${hardware.target}&build=0&channel=0`, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`Firmware service returned HTTP ${response.status}`);

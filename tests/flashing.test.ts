@@ -1,9 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Transport } from 'esptool-js';
-import { disconnectFlasher, resetFlasher } from '../src/flashing';
+import { ESPLoader, Transport } from 'esptool-js';
+import { ESP32C6ROM } from 'esptool-js/lib/targets/esp32c6';
+import { ESP32C3ROM } from 'esptool-js/lib/targets/esp32c3';
+import { checkFlashSize, disconnectFlasher, resetFlasher } from '../src/flashing';
 import { DeviceConnection } from '../src/transport';
 import { decodeRequest, encodeResponse, frame, FrameDecoder } from '../shared/protocol/src/index';
+
+test('C6 flash detection reads the correct SPI controller and distinguishes unknown from undersized flash', async () => {
+  const loader = new ESPLoader({ transport: new Transport({ getInfo: () => ({}) } as SerialPort), baudrate: 115200, romBaudrate: 115200,
+    terminal: { clean() {}, write() {}, writeLine() {} } });
+  loader.chip = new ESP32C6ROM();
+  let flashId = 0x1640ef;
+  const addresses: number[] = [];
+  loader.readReg = async address => { addresses.push(address); return address === 0x60003058 ? flashId : 0; };
+  loader.writeReg = async address => { addresses.push(address); };
+  assert.equal(await checkFlashSize(loader, 4194304), 4194304);
+  assert.ok(addresses.includes(0x60003058));
+  assert.ok(addresses.every(address => address >= 0x60003000 && address < 0x60003100));
+  flashId = 0x1740ef;
+  assert.equal(await checkFlashSize(loader, 4194304), 8388608);
+  flashId = 0x1540ef;
+  await assert.rejects(checkFlashSize(loader, 4194304), /Detected 2 MB.*requires at least 4 MB/);
+  for (flashId of [0, 0xffffff]) await assert.rejects(checkFlashSize(loader, 4194304), /Could not detect flash capacity/);
+  loader.chip = new ESP32C3ROM();
+  loader.readReg = async address => address === 0x60002058 ? 0x1640ef : 0;
+  assert.equal(await checkFlashSize(loader, 4194304), 4194304);
+  assert.equal(loader.chip.SPI_REG_BASE, 0x60002000);
+});
 
 test('post-flash reset settles the bridge before pulsing EN and closing the port', async () => {
   let bootHeld = true, resetHeld = true, idleAt = 0, resetAt = 0, bootAt = 0;
