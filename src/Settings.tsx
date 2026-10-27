@@ -57,14 +57,13 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
           <p className="field-label">FIRMWARE</p><div className="group"><div className="setting-row"><span>Build</span><span className="muted">{light.state.build}</span></div><button type="button" className="link-row" disabled={busy} onClick={() => void checkUpdate()}>{busy ? 'Working…' : 'Check for Updates'}<RefreshCw size={16} /></button>{available > 0 && <button type="button" className="link-row" onClick={() => { setUpdate(true); setUpdateStatus(''); }}>Build {available} available <ArrowUpRight size={16} /></button>}</div>
         </>}
         {light.simulator && <><p className="field-label">SIMULATOR</p><div className="group"><p className="field-note padded">A virtual Luxio running in this browser. Settings and saved items are kept on this device.</p><button type="button" className="link-row danger" onClick={() => setConfirmRemove(true)}>Remove Simulator</button></div></>}
-        {!light.simulator && <button type="button" className="text-button danger forget" onClick={() => setConfirmRemove(true)}>Forget this light</button>}
         {!valid && <p className="error">Enter a name, 1–1024 LEDs, and valid, different GPIO pins (0–54).</p>}
         <div className="settings-save"><button className="primary-button full" disabled={!valid || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Saving…</> : 'Save'}</button></div>
       </form>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
     {confirmWifi && <div className="inline-confirm" role="alert"><h3>Disable Wi-Fi?</h3><p>Saving will restart Luxio and disconnect this browser and Matter. Reconnect using Bluetooth or USB to enable Wi-Fi again.</p><button className="danger-button" disabled={busy} onClick={() => { setConfirmWifi(false); void save(); }}>Disable Wi-Fi</button><button className="text-button" onClick={() => setConfirmWifi(false)}>Cancel</button></div>}
-    {confirmRemove && <div className="inline-confirm" role="alert"><h3>{light.simulator ? 'Remove Simulator?' : 'Forget this light?'}</h3><p>{light.simulator ? 'Its settings and saved library will be removed from this browser.' : 'The device and its saved presets will remain unchanged.'}</p><button className="danger-button" onClick={() => { remove(light); removed(); }}>Remove</button><button className="text-button" onClick={() => setConfirmRemove(false)}>Cancel</button></div>}
+    {light.simulator && confirmRemove && <div className="inline-confirm" role="alert"><h3>Remove Simulator?</h3><p>Its settings and saved library will be removed from this browser.</p><button className="danger-button" onClick={() => { remove(light); removed(); }}>Remove</button><button className="text-button" onClick={() => setConfirmRemove(false)}>Cancel</button></div>}
   </div></Modal>;
 
   async function scanWifi() {
