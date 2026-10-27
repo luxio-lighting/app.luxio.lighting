@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LoaderCircle, Usb, Zap } from 'lucide-react';
+import { Check, LoaderCircle, Usb } from 'lucide-react';
 import { Modal } from './Controls';
 import { findDevice, type Light } from './model';
 import { connections } from './transport';
@@ -12,6 +12,7 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
   const [installed, setInstalled] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const [title, setTitle] = useState('Flash your ESP32');
   const [progress, setProgress] = useState<number | null>(null);
   const [log, setLog] = useState('');
   const logElement = useRef<HTMLPreElement>(null);
@@ -20,15 +21,15 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
 
   async function configure() {
     if (!port) return;
-    setBusy(true); setError(''); setStatus('Connecting to Luxio…');
+    setBusy(true); setError(''); setTitle('Connecting…'); setStatus('Connecting to Luxio via USB…');
     try { added(await findDevice('usb'), true); }
-    catch (error) { setError(String(error)); setStatus(installed ? 'Firmware installed. Wait for your board to restart, then try connecting again.' : ''); }
+    catch (error) { setTitle('Luxio is installed'); setError(String(error)); setStatus(installed ? 'Firmware installed. Wait for your board to restart, then try connecting again.' : ''); }
     finally { setBusy(false); }
   }
 
   async function flash() {
     if (!port || busy) return;
-    setBusy(true); setError(''); setLog(''); setProgress(0); setStatus('Detecting your ESP32…');
+    setBusy(true); setError(''); setLog(''); setProgress(0); setTitle('Flashing…'); setStatus('Detecting your ESP32…');
     let transport: import('esptool-js').Transport | undefined;
     try {
       for (const connection of connections.values()) if (connection.device === port) await connection.close();
@@ -71,7 +72,7 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       setStatus('Installing Luxio. Keep your ESP32 connected.');
       await loader.writeFlash({ fileArray: files, flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep', eraseAll: false, compress: true,
         reportProgress: (file, written, total) => setProgress(((file + written / total) / files.length) * 100) });
-      setStatus('Restarting Luxio…');
+      setTitle('Restarting…'); setStatus('Firmware installed. Waiting for Luxio to restart…');
       await resetFlasher(transport);
       await disconnectFlasher(transport); transport = undefined;
       setInstalled(true); setProgress(100); setStatus('Firmware installed. Waiting for Luxio to restart…');
@@ -79,30 +80,30 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       let connectionError = '';
       while (Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000));
-        setStatus('Firmware installed. Connecting to Luxio via USB…');
+        setTitle('Connecting…'); setStatus('Connecting to Luxio via USB…');
         try { added(await findDevice('usb', port), true); return; }
         catch (error) {
           connectionError = error instanceof Error ? error.message : String(error);
           setLog(previous => `${previous}\nUSB reconnect: ${connectionError}`.slice(-20000));
         }
       }
+      setTitle('Luxio is installed');
       setStatus('Firmware installed. Luxio has not reconnected yet. Press RESET on the board without holding BOOT, then select its USB port below.');
       setError(connectionError);
-    } catch (error) { setError(error instanceof Error ? error.message : String(error)); setStatus(''); }
+    } catch (error) { setTitle('Installation failed'); setError(error instanceof Error ? error.message : String(error)); setStatus('Check the installation log, then try again.'); }
     finally { if (transport) await disconnectFlasher(transport).catch(() => {}); setBusy(false); }
   }
 
   return <Modal title="Set up Luxio" close={() => { if (!busy) close(); }}><div className="sheet-body flasher-body">
-    <ol className="setup-steps" aria-label="Setup progress"><li className={!port ? 'current' : ''} aria-current={!port ? 'step' : undefined}><button disabled={!port || busy || installed} onClick={() => { setPort(null); setProgress(null); setError(''); setLog(''); setStatus(''); }}><b>1</b> Connect</button></li><li className={port ? 'current' : ''} aria-current={port ? 'step' : undefined}><b>2</b> Install</li><li><b>3</b> Configure</li></ol>
-    <div className="flasher-intro"><span className="empty-icon"><Zap size={32} /></span><h3>{installed ? 'Luxio is installed' : port ? 'Install Luxio' : 'Flash your ESP32'}</h3><p>{installed ? 'Your light will open automatically when its USB connection is ready.' : port ? 'Install the latest Luxio firmware on your ESP32.' : 'Plug in your ESP32 with a USB data cable, then select it below.'}</p></div>
+    <ol className="setup-steps" aria-label="Setup progress"><li className={!port ? 'current' : ''} aria-current={!port ? 'step' : undefined}><button disabled={!port || busy || installed} onClick={() => { setPort(null); setProgress(null); setError(''); setLog(''); setStatus(''); setTitle('Flash your ESP32'); }}><b>1</b> Connect</button></li><li className={port ? 'current' : ''} aria-current={port ? 'step' : undefined}><b>2</b> Install</li><li><b>3</b> Configure</li></ol>
+    <div className="flasher-intro" role="status" aria-live="polite"><span className="empty-icon">{busy ? <LoaderCircle size={32} className="spinning" /> : installed ? <Check size={32} /> : <Usb size={32} />}</span><h3>{title}</h3><p>{status || (installed ? 'Your light will open automatically when its USB connection is ready.' : port ? 'Install the latest Luxio firmware on your ESP32.' : 'Plug in your ESP32 with a USB data cable, then select it below.')}</p></div>
     {!supported && <p className="field-note">Flashing requires Google Chrome on a computer with USB. You can still use the simulator here.</p>}
     {!port ? <button className="primary-button full" disabled={!supported || busy} onClick={async () => {
-      setError(''); setBusy(true);
-      try { setPort(await navigator.serial.requestPort()); }
-      catch (error) { if (!(error instanceof DOMException && error.name === 'NotFoundError')) setError(String(error)); }
-      finally { setBusy(false); }
-    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <div className="flash-install">{busy && <progress className="flash-progress" value={progress ?? 0} max={100} aria-label="Firmware installation progress" />}<button className="primary-button full" disabled={busy} onClick={() => void flash()}>{busy ? <><LoaderCircle size={16} className="spinning" /> Flashing…</> : 'Install Luxio'}</button></div>}{installed && !busy && <button className="primary-button full" onClick={() => void configure()}>Connect to Luxio</button>}</div>}
-    {status && <p className="field-note" role="status">{status}</p>}
+      setError(''); setBusy(true); setTitle('Connecting…'); setStatus('Select your ESP32’s USB port.');
+      try { setPort(await navigator.serial.requestPort()); setTitle('Install Luxio'); }
+      catch (error) { setTitle('Flash your ESP32'); if (!(error instanceof DOMException && error.name === 'NotFoundError')) setError(String(error)); }
+      finally { setBusy(false); setStatus(''); }
+    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <div className={`flash-install${busy ? ' is-flashing' : ''}`}><progress className="flash-progress" value={progress ?? 0} max={100} aria-label="Firmware installation progress" aria-hidden={!busy} /><button className="primary-button full" disabled={busy} aria-hidden={busy} tabIndex={busy ? -1 : undefined} onClick={() => void flash()}>Install Luxio</button></div>}{installed && !busy && <button className="primary-button full" onClick={() => void configure()}>Connect to Luxio</button>}</div>}
     {log && <details className="flash-log"><summary>Installation log</summary><pre ref={logElement}>{log}</pre></details>}
     {error && <p role="alert" className="error">{error}</p>}
   </div></Modal>;

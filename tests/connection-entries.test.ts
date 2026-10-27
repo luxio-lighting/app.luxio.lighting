@@ -20,9 +20,15 @@ let scripts: Script[] = [];
 const calls: { kind: string; operation: number }[] = [];
 let holdWifi: Promise<void> | undefined;
 let failWifi = false;
+let resetReply: 'accept' | 'missing' | 'disconnect' = 'accept';
 async function respond(kind: string, request: Request): Promise<DeviceResponse> {
   calls.push({ kind, operation: request.operation });
   if (kind === 'wifi' && failWifi) throw new Error('Wi-Fi unavailable');
+  if (request.operation === 33) {
+    assert.equal(request.factoryResetConfirmed, true);
+    if (resetReply === 'disconnect') throw new Error('Disconnected before acknowledgement');
+    return { id: request.id, error: '', factoryResetAccepted: resetReply === 'accept' } as DeviceResponse;
+  }
   if (request.operation === 2) state.brightness = request.brightness!;
   if (request.operation === 15) state.on = request.on!;
   if (request.operation === 1) { state.color = request.color!; state.mode = 0; }
@@ -111,6 +117,40 @@ test('Wi-Fi, USB, and Bluetooth keep distinct entries, synchronize state and lib
   assert.equal(usbLight.online, false); assert.equal(wifi.online, false);
   assert.equal(await model.findDevice('usb'), usbLight);
   assert.equal(usbLight.online, true); assert.equal(wifi.online, false);
+});
+
+
+for (const kind of ['wifi', 'usb', 'bluetooth'] as const) test(`factory reset over ${kind} requires confirmation and acknowledgement, never retries, and clears all aliases`, async () => {
+  failWifi = false;
+  state = { ...structuredClone(base), deviceId: `reset-${kind}`, build: 37, factoryResetSupported: true };
+  const wifi = await model.connect('192.0.2.9');
+  const usbLight = await model.findDevice('usb');
+  const bluetoothLight = await model.findDevice('bluetooth');
+  const selected = kind === 'wifi' ? wifi : kind === 'usb' ? usbLight : bluetoothLight;
+  const unrelated = model.lights.find(light => light.state.deviceId === 'other-board')!;
+  calls.length = 0;
+  await assert.rejects(model.send(selected, { operation: 33 }), /confirmation/);
+  assert.equal(calls.length, 0);
+  selected.state.factoryResetSupported = false;
+  await assert.rejects(model.send(selected, { operation: 33, factoryResetConfirmed: true }), /supported firmware/);
+  assert.equal(calls.length, 0);
+  selected.state.factoryResetSupported = true;
+  for (const reply of ['missing', 'disconnect'] as const) {
+    resetReply = reply; calls.length = 0;
+    await assert.rejects(model.send(selected, { operation: 33, factoryResetConfirmed: true }), /acknowledge/);
+    assert.deepEqual(calls, [{ kind, operation: 33 }]);
+    assert.equal(model.lights.filter(light => light.state.deviceId === state.deviceId).length, 3);
+    assert.ok(connections.has(usbLight.id) && connections.has(bluetoothLight.id));
+  }
+  resetReply = 'accept'; calls.length = 0;
+  const reply = await model.send(selected, { operation: 33, factoryResetConfirmed: true });
+  assert.equal(reply.factoryResetAccepted, true);
+  assert.deepEqual(calls, [{ kind, operation: 33 }]); // No follow-up status request after reset.
+  assert.equal(model.lights.some(light => light.state.deviceId === state.deviceId), false);
+  assert.equal(connections.has(usbLight.id), false);
+  assert.equal(connections.has(bluetoothLight.id), false);
+  assert.equal(JSON.parse(memory.get('luxio-app-v1')!).some((light: {id: string}) => light.id === selected.id), false);
+  assert.ok(model.lights.includes(unrelated));
 });
 
 test.after(async () => {

@@ -157,10 +157,16 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
     let result: Partial<Response> = {};
     if (!light.simulator) {
       try {
+        if (payload.operation === 33 && (!light.state.factoryResetSupported || !payload.factoryResetConfirmed)) throw new Error('Factory reset requires supported firmware and confirmation.');
         const connection = connections.get(light.id);
         if (light.transport && !connection) throw new Error('Device disconnected. Find Luxio again to reconnect.');
         if (needsChrome(light)) throw new Error('Use Google Chrome for local HTTP access.');
         result = connection ? await connection.request(request) : await requestHttp(light.address, request);
+        if (payload.operation === 33) {
+          if (!result.factoryResetAccepted) throw new Error('Luxio did not acknowledge the factory reset.');
+          for (const peer of lights.filter(item => !item.simulator && item.state.deviceId === deviceKey)) remove(peer);
+          return result as Response;
+        }
         if (payload.operation !== 0 && !result.state) {
           const statusRequest = { id: requestID++, operation: 0 };
           const status = connection ? await connection.request(statusRequest) : await requestHttp(light.address, statusRequest);

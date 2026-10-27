@@ -189,6 +189,7 @@ input::placeholder { color: var(--muted); }
 .group > input { display: block; width: 100%; border: none !important; border-radius: 0 !important; padding: 16px !important; background: transparent !important; }
 .link-row { padding: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; color: #2eecb6; font-size: 13px; gap: 10px; }
 .link-row:hover { background: #ffffff05; }
+.settings-action { display: inline-flex; align-items: center; gap: 10px; }
 .group > * + * { border-top: 1px solid #ffffff07; }
 .add-guide { text-align: center; padding: 4px 12px 10px; }
 .add-guide > svg { color: #2eecb6; }
@@ -218,6 +219,9 @@ input::placeholder { color: var(--muted); }
 .inline-confirm h3 { margin-top: 0; }
 .inline-confirm p { color: var(--muted); font-size: 12px; line-height: 1.7; margin-bottom: 14px; }
 .inline-confirm .text-button { margin-left: 20px; }
+.factory-reset-confirm { display: flex; flex-direction: column; gap: 16px; text-align: center; }
+.factory-reset-confirm .empty-icon { margin: 0 auto; }
+.factory-reset-confirm p { color: var(--muted); line-height: 1.7; }
 .update-panel { text-align: center; padding-top: 26px; }
 .update-panel p { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 16px 0 24px; }
 .update-panel progress { width: 100%; accent-color: var(--accent); }
@@ -358,13 +362,15 @@ input::placeholder { color: var(--muted); }
 .flasher-intro h3 { margin: 0 0 12px; font-size: 22px; }
 .flasher-intro p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .flasher-actions { display: flex; flex-direction: column; gap: 12px; }
-.flash-install { position: relative; border-radius: var(--radius); overflow: hidden; }
-.flash-install .primary-button { position: relative; min-height: 44px; }
-.flash-install .primary-button:disabled { opacity: 1; background: transparent; color: #fff; text-shadow: 0 1px 3px #000a; filter: none; }
-.flash-progress { position: absolute; inset: 0; display: block; appearance: none; width: 100%; height: 100%; border: 0; border-radius: inherit; overflow: hidden; background: #333; }
+.flash-install { position: relative; height: 44px; border-radius: var(--radius); overflow: hidden; transition: height .32s ease .1s, border-radius .32s ease .1s; }
+.flash-install.is-flashing { height: 12px; border-radius: 999px; }
+.flash-install .primary-button { position: absolute; inset: 0; min-height: 44px; transition: opacity .12s; }
+.flash-install.is-flashing .primary-button { opacity: 0; pointer-events: none; }
+.flash-progress { position: absolute; inset: 0; display: block; appearance: none; width: 100%; height: 100%; border: 0; border-radius: inherit; overflow: hidden; background: #333; opacity: 0; transition: opacity .12s; }
+.flash-install.is-flashing .flash-progress { opacity: 1; }
 .flash-progress::-webkit-progress-bar { background: #333; border-radius: inherit; }
-.flash-progress::-webkit-progress-value { background: var(--luxio-gradient); border-radius: var(--radius); transition: width .2s; }
-.flash-progress::-moz-progress-bar { background: var(--luxio-gradient); border-radius: var(--radius); }
+.flash-progress::-webkit-progress-value { background: var(--luxio-gradient); border-radius: 999px; transition: width .2s; }
+.flash-progress::-moz-progress-bar { background: var(--luxio-gradient); border-radius: 999px; }
 .flash-log { margin-top: 16px; font-size: 12px; color: var(--muted); }
 .flash-log pre { max-height: 140px; overflow: auto; font-size: 10px; line-height: 1.5; margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .flash-log summary { cursor: pointer; }
