@@ -48,7 +48,7 @@ h1, h2, h3, p { margin: 0; }
 .power span { display: block; height: 22px; width: 22px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px #0003; transition: transform .2s; }
 .power.on { background: #0005; }
 .power.on span { transform: translateX(18px); }
-.group .power.on { background: var(--accent); }
+.group .power.on { background: #2eecb6; }
 .brightness { padding: 4px 0 0; }
 input[type=range] { width: 100%; height: 30px; background: transparent; appearance: none; cursor: pointer; margin: 0; padding: 0; border: 0; }
 input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 10px; background: linear-gradient(90deg, #ffffff8c var(--progress, 100%), #0003 var(--progress, 100%)); }
