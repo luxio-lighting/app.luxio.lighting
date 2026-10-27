@@ -299,7 +299,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
       <div className="toolbar-controls">
         <a className="documentation-link" href="/docs.html" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title="Documentation"><span>Documentation</span><ExternalLink aria-hidden="true" /></a>
         <Button variant="secondary" size="lg" disabled={busy || loading || (!running && !current?.source)} onClick={() => void test()} aria-label={running ? 'Stop test' : 'Test'} className={`studio-action ${running ? 'test-active' : ''}`}>{running ? <Square className="fill-current" /> : <Play className="fill-current" />}<span>{running ? 'Stop' : 'Test'}</span></Button>
-        <Button size="lg" className="studio-action" disabled={busy || !current?.source} onClick={() => void save()}><Save />Save</Button>
+        <Button size="lg" className="studio-action" disabled={busy || !current?.source || !dirty} onClick={() => void save()}><Save />Save</Button>
         <Button variant="ghost" size="icon-sm" aria-label="Close Studio" disabled={busy} onClick={() => void closeAction.current?.()}><X /></Button>
       </div>
     </header>
