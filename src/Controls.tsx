@@ -50,18 +50,19 @@ export function Backdrop({ light }: { light: Light }) {
   }, []);
   useEffect(() => {
     let target: number[][] = [], frame = 0;
-    const started = performance.now();
-    const from = rendered.current;
+    let started: number | undefined, from = rendered.current;
     // Interpolate equal-size opaque palettes, including single colors and power off.
     const paint = (now: number) => {
       frame = 0;
-      const progress = reduced || !active || !visible || !from.length ? 1 : Math.min(1, (now - started) / 400);
+      const progress = reduced || !active || !visible || !from.length ? 1 : Math.min(1, (now - (started ?? now)) / 400);
       const eased = progress * progress * (3 - 2 * progress);
       rendered.current = target.map((color, i) => color.map((value, channel) => (from[i]?.[channel] ?? value) * (1 - eased) + value * eased));
       if (element.current) element.current.style.background = `linear-gradient(110deg, ${rendered.current.map(rgb => `rgb(${rgb.join(',')})`).join(',')})`;
       if (progress < 1) frame = requestAnimationFrame(paint);
     };
-    const update = (colors: Color[]) => {
+    const update = (colors: Color[], restart = false) => {
+      // Start the fade when the first real frame arrives, not while Lua is loading.
+      if (started === undefined || restart) { started = performance.now(); from = rendered.current; }
       const rgb = (colors.length ? colors : [{ ...emptyColor, red: 38, green: 38, blue: 38 }]).map(c => [Math.min(255, c.red + c.white + c.warmWhite + c.coolWhite * .8), Math.min(255, c.green + c.white + c.warmWhite * .73 + c.coolWhite * .9), Math.min(255, c.blue + c.white + c.warmWhite * .4 + c.coolWhite)]);
       target = Array.from({ length: 65 }, (_, index) => {
         const position = index / 64 * (rgb.length - 1), low = Math.floor(position), high = Math.min(rgb.length - 1, low + 1);
@@ -69,22 +70,28 @@ export function Backdrop({ light }: { light: Light }) {
       });
       if (!frame) frame = requestAnimationFrame(paint);
     };
-    update(state.on ? palette : []);
-    let runtime: Worker | null = null, watchdog: ReturnType<typeof setInterval> | undefined;
-    if (state.on && state.mode === 2 && light.source && active && visible && !reduced) {
+    let runtime: Worker | null = null, watchdog: ReturnType<typeof setInterval> | undefined, fallback: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    const animate = state.on && state.mode === 2 && active && visible && !reduced;
+    // Keep the displayed frame while the new script/source loads. The palette is
+    // only a fallback, otherwise it creates an extra transition before playback.
+    if (!animate) update(state.on ? palette : []);
+    else if (!light.source) fallback = setTimeout(() => update(palette, true), 2500);
+    if (animate && light.source) {
       runtime = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
       worker.current = runtime;
       let lastFrame = performance.now();
-      watchdog = setInterval(() => { if (performance.now() - lastFrame > 2500) { runtime?.terminate(); clearInterval(watchdog); update(palette); } }, 1000);
+      watchdog = setInterval(() => { if (performance.now() - lastFrame > 2500) { runtime?.terminate(); clearInterval(watchdog); update(palette, true); } }, 1000);
       runtime.onmessage = event => {
+        if (disposed) return;
         lastFrame = performance.now();
-        if (event.data.error) { runtime?.terminate(); clearInterval(watchdog); update(palette); }
+        if (event.data.error) { runtime?.terminate(); clearInterval(watchdog); update(palette, true); return; }
         if (event.data.pixels) update(event.data.pixels as Color[]);
       };
-      runtime.onerror = () => { runtime?.terminate(); clearInterval(watchdog); update(palette); };
+      runtime.onerror = () => { if (disposed) return; runtime?.terminate(); clearInterval(watchdog); update(palette, true); };
       runtime.postMessage({ source: light.source, count: state.config.ledCount, stripType: state.config.stripType, parameters: state.parameters });
     }
-    return () => { cancelAnimationFrame(frame); runtime?.terminate(); clearInterval(watchdog); worker.current = null; };
+    return () => { disposed = true; cancelAnimationFrame(frame); runtime?.terminate(); clearInterval(watchdog); clearTimeout(fallback); worker.current = null; };
   }, [light.source, state.mode, state.on, state.animationRevision, state.config.ledCount, state.config.stripType, active, visible, reduced, JSON.stringify(palette)]);
   useEffect(() => { worker.current?.postMessage({ parameters: state.parameters ?? [] }); }, [JSON.stringify(state.parameters)]);
   return <div className="light-backdrop" ref={element} aria-hidden="true" />;
