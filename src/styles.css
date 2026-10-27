@@ -95,8 +95,8 @@ input[type=range]::-moz-range-thumb { width: 19px; height: 19px; background: whi
 .welcome p { font-size: 15px; color: var(--muted); line-height: 1.7; white-space: pre-line; margin: 20px 0 30px; }
 .welcome > .text-button { margin-top: 10px; }
 .control-view { width: 100%; }
-.control-header { position: relative; isolation: isolate; border-radius: 0; overflow: hidden; border-bottom: 1px solid var(--border); }
-.control-header-content { padding: 26px 40px 22px; max-width: 1500px; margin: auto; }
+.control-header { position: relative; isolation: isolate; margin: 16px 16px 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+.control-header-content { padding: 26px 24px 22px; max-width: 1500px; margin: auto; }
 .control-topbar { gap: 15px; margin-bottom: 25px; }
 .device-title { flex: 1; min-width: 0; }
 .device-title h1 { font-size: 22px; font-weight: 600; letter-spacing: -.6px; overflow-wrap: anywhere; }
@@ -253,8 +253,8 @@ input::placeholder { color: var(--muted); }
   .empty-devices p { font-size: 14px; }
   .app:not(.has-selection) .main { display: none; }
   .has-selection .sidebar { display: none; }
-  .control-header { position: sticky; top: 0; z-index: 3; border-radius: 0; }
-  .control-header-content { padding: max(16px, env(safe-area-inset-top)) 16px 16px; }
+  .control-header { position: sticky; top: max(12px, env(safe-area-inset-top)); z-index: 3; margin: max(12px, env(safe-area-inset-top)) 12px 0; }
+  .control-header-content { padding: 16px; }
   .control-topbar { gap: 10px; margin-bottom: 14px; }
   .back-button { display: flex; }
   .device-title h1 { font-size: 17px; letter-spacing: -.3px; }
