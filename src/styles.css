@@ -101,6 +101,7 @@ input[type=range]::-moz-range-thumb { width: 19px; height: 19px; background: whi
 .control-topbar { gap: 15px; margin-bottom: 25px; }
 .device-title { flex: 1; min-width: 0; }
 .device-title h1 { font-size: 22px; font-weight: 600; letter-spacing: -.6px; overflow-wrap: anywhere; }
+.device-open span, .device-title h1 { text-shadow: 0 1px 3px #0006; }
 .device-title > span { display: block; margin-top: 6px; font-size: 11px; opacity: .65; }
 .title-divider { margin: 0 7px; }
 .more-button { border-radius: 50%; }
