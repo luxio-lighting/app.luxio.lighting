@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, RotateCcw, QrCode, ChevronDown, LockKeyhole, Check, Copy, LoaderCircle, RefreshCw, Wifi, Bluetooth, Usb } from 'lucide-react';
 import { Modal, Power } from './Controls';
-import { remove, send, type Light } from './model';
+import { discoverDevices, remove, send, type Light } from './model';
 import { configSchema, type WifiNetwork } from '../shared/protocol/src/index';
 
 export function Settings({ light, close, removed, notice }: { light: Light; close: () => void; removed: () => void; notice: (message: string) => void }) {
@@ -86,9 +86,40 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
         if (new TextEncoder().encode(ssid).length > 32) throw new Error('Network names must be 32 bytes or fewer.');
         const passwordBytes = new TextEncoder().encode(password).length;
         if (secured && !((passwordBytes >= 8 && passwordBytes <= 63) || /^[a-f\d]{64}$/i.test(password))) throw new Error('Use an 8–63 byte password or a 64-digit hexadecimal password.');
+        const before = (await send(light, { operation: 0 })).networkStatus;
+        if (!mounted.current) return;
         await send(light, { operation: 4, wifi: { ssid, password: secured ? password : '' } });
-        setPassword(''); notice('Wi-Fi settings sent. Luxio may disconnect while joining the network.'); setWifi(false);
-      } catch (error) { setError(String(error)); } finally { setBusy(false); }
+        const deadline = Date.now() + 60000;
+        let rejoined = !before?.connected || before.ssid !== ssid;
+        while (mounted.current && Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (!mounted.current) return;
+          try {
+            const result = await send(light, { operation: 0 });
+            if (!mounted.current) return;
+            const network = result.networkStatus;
+            // When reconnecting to the same SSID, ignore the old connection
+            // until the device has actually disconnected or restarted.
+            if (network && (!network.connected || (network.disconnectCount ?? 0) > (before?.disconnectCount ?? 0) || (network.uptimeMs ?? Infinity) < (before?.uptimeMs ?? 0))) rejoined = true;
+            if (rejoined && network?.connected && network.ssid === ssid && result.state?.lanIp && result.state.lanIp !== '0.0.0.0') {
+              setPassword(''); setWifi(false); notice(`Connected to ${ssid}.`); return;
+            }
+          } catch {
+            // USB/BLE can stay connected while Wi-Fi changes. An HTTP device
+            // may obtain a new address; resolve it by the same device identity.
+            if (!light.transport && mounted.current && Date.now() < deadline) {
+              try {
+                const response = await fetch('https://api.luxio.lighting/devices', { signal: AbortSignal.timeout(3000) });
+                if (response.ok) {
+                  const found: unknown = await response.json();
+                  if (mounted.current && Array.isArray(found)) discoverDevices(found.filter(device => device?.deviceId === light.state.deviceId));
+                }
+              } catch { /* Keep waiting for a confirmed connection until the deadline. */ }
+            }
+          }
+        }
+        if (mounted.current) setError(`Couldn’t confirm connection to ${ssid}. Check the password and network, then try again.${light.transport ? '' : ' If Luxio changed networks, reconnect using USB or Bluetooth.'}`);
+      } catch (error) { if (mounted.current) setError(String(error)); } finally { if (mounted.current) setBusy(false); }
     }}>
       <label id="wifi-network-label">SSID</label>
       <div className="wifi-picker" ref={networkPicker} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setNetworkOpen(false); }} onKeyDown={event => {
@@ -137,7 +168,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
       {customNetwork && <input ref={customSsid} aria-label="Custom SSID" placeholder="Enter SSID" required maxLength={32} autoComplete="off" disabled={busy} value={ssid} onChange={event => setSsid(event.target.value)} />}
       {secured && <label className="wifi-password">Password<input required type="password" maxLength={64} autoComplete="new-password" disabled={busy} value={password} onChange={event => setPassword(event.target.value)} /></label>}
       <span id="wifi-scan-status" className="wifi-scan-status" role="status" aria-live="polite">{scanStatus}</span>
-      <button className="primary-button full" disabled={busy || scanning || !selectedValue || !ssid || (secured && !password)}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : 'Connect'}</button>
+      <button className="primary-button full" aria-busy={busy} disabled={busy || scanning || !selectedValue || !ssid || (secured && !password)}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : 'Connect'}</button>
     </form> : update ? <div className="update-panel"><span className="empty-icon"><RefreshCw size={30} className={busy ? 'spinning' : ''} /></span><h3>{updateStatus === 'complete' ? 'Update Installed' : busy ? 'Installing Update' : 'Update Available'}</h3><p>{updateStatus === 'complete' ? `Luxio is now running build ${available}.` : `Build ${available} is ready to install. Keep Luxio powered on while it updates.`}</p>{progress !== null && <progress max={1} value={progress} aria-label="Download progress" />}{updateStatus && updateStatus !== 'complete' && <p role="status">{updateStatus}</p>}{!busy && updateStatus !== 'complete' && !updateStatus && <button className="primary-button full" onClick={() => void install()}>Install</button>}{!busy && light.address && updateStatus && updateStatus !== 'complete' && <a className="secondary-button" href={light.address} target="_blank" rel="noreferrer">Open Recovery <ArrowUpRight size={16} /></a>}{updateStatus === 'complete' && <button className="primary-button full" onClick={() => { setUpdate(false); setAvailable(0); }}>Done</button>}</div> : <>
       {!light.simulator && <><p className="field-label">CONNECTION</p><div className="group"><div className="setting-row"><span>Type</span><span className="muted">{light.transport === 'usb' ? <Usb size={15} /> : light.transport === 'bluetooth' ? <Bluetooth size={15} /> : <Wifi size={15} />} {light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}</span></div></div></>}
       <form id="settings-form" onSubmit={event => { event.preventDefault(); if (!light.simulator && light.state.config.wifi?.enabled !== false && config.wifi?.enabled === false) setConfirmWifi(true); else void save(); }}>
