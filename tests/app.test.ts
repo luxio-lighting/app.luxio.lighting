@@ -131,3 +131,54 @@ test('invalid changes do not corrupt the simulator and removal persists', async 
   model.remove(light);
   assert.deepEqual(JSON.parse(memory.get('luxio-app-v1')!), []);
 });
+
+test('directory devices remain visible without HTTP access and reconnect by stable device ID', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = () => { throw new Error('Safari blocked HTTP'); };
+  try {
+    const devices = model.discoverDevices([{ deviceId: 'directory-test', name: 'Luxio S3 mini', lan_ip: '192.168.1.50', build: 35 }]);
+    assert.equal(devices.length, 1);
+    assert.equal(devices[0].online, false);
+    assert.equal(devices[0].stateKnown, false);
+    assert.equal(devices[0].state.config.name, 'Luxio S3 mini');
+    await assert.rejects(model.refresh(devices[0]), /blocked HTTP/);
+    assert.ok(model.snapshot().includes(devices[0]));
+    model.discoverDevices([{ deviceId: 'directory-test', name: 'Luxio S3 mini', lan_ip: '192.168.1.51', build: 35 }]);
+    assert.equal(model.snapshot().filter(d => d.id === 'directory-test').length, 1);
+    assert.equal(devices[0].address, 'http://192.168.1.51');
+    model.remove(devices[0]);
+  } finally { globalThis.fetch = original; }
+});
+
+test('all animations also run on firmware without bulk Lua APIs, including dedicated white LEDs', () => {
+  for (const strip of ['WS2805', 'WS2814', 'WS2812', 'SK6812']) for (const preset of presets.filter(p => !p.isGradient)) {
+    const animation = new Animation(preset.source.replace('if luxio_fill_hsv and luxio_render_waves then', 'luxio_fill_hsv = nil\nluxio_render_waves = nil\nluxio_fill = nil\nif luxio_fill_hsv and luxio_render_waves then'), 144, strip);
+    try {
+      for (let frame = 0; frame < 3; frame++) {
+        const pixels = animation.tick();
+        assert.equal(pixels.length, 144);
+        assert.ok(pixels.some(pixel => Object.values(pixel).some(value => value > 0)), `${strip} / ${preset.name}`);
+      }
+    } finally { animation.close(); }
+  }
+});
+
+test('browser guidance excludes simulators and direct USB/BLE connections', () => {
+  const oldLocation = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  const oldNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'location', { value: { protocol: 'https:' }, configurable: true });
+  Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'AppleWebKit Version/26 Safari/605' }, configurable: true });
+  try {
+    assert.equal(model.needsChrome(), true);
+    assert.equal(model.needsChrome({ ...light, simulator: false, address: 'http://192.168.1.2' }), true);
+    assert.equal(model.needsChrome(light), false);
+    assert.equal(model.needsChrome({ ...light, simulator: false, transport: 'bluetooth' }), false);
+    Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'Chrome/142 Safari/537' }, configurable: true });
+    assert.equal(model.needsChrome(), false);
+    Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'CriOS/142 Mobile Safari/604' }, configurable: true });
+    assert.equal(model.needsChrome(), true);
+  } finally {
+    if (oldLocation) Object.defineProperty(globalThis, 'location', oldLocation); else Reflect.deleteProperty(globalThis, 'location');
+    if (oldNavigator) Object.defineProperty(globalThis, 'navigator', oldNavigator); else Reflect.deleteProperty(globalThis, 'navigator');
+  }
+});

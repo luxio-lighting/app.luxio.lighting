@@ -1,9 +1,10 @@
+import { connections, DeviceConnection, serviceUUID } from './transport';
 import { colorSchema, configSchema, savedColorSchema, gradientSchema, scriptSchema, requestHttp, type Color, type State, type Script, type Gradient, type SavedColor, type Request, type Response } from '../shared/protocol/src/index';
 import { parseParameters, updateParameters } from '../shared/protocol/src/parameters';
 import { parsePreview } from '../shared/protocol/src/preview';
 
 export type Library = { colors: SavedColor[]; gradients: Gradient[]; scripts: Script[] };
-export type Light = { id: string; address: string; state: State; online: boolean; simulator?: boolean; library: Library; source?: string; network?: Response['networkStatus'] };
+export type Light = { id: string; address: string; state: State; online: boolean; transport?: 'usb' | 'bluetooth'; stateKnown?: boolean; animationError?: string; simulator?: boolean; library: Library; source?: string; network?: Response['networkStatus'] };
 export type Item = { id: string; name: string; mode: number; colors: Color[]; source?: string };
 export const emptyColor: Color = { red: 0, green: 0, blue: 0, white: 0, warmWhite: 0, coolWhite: 0 };
 export const modes = ['Color', 'Gradient', 'Animation'];
@@ -57,18 +58,76 @@ export function addSimulator() {
   lights.push(light); publish(); return light;
 }
 
+export function needsChrome(light?: Light) {
+  if (light?.simulator || light?.transport || light?.address.startsWith('https:')) return false;
+  return typeof location !== 'undefined' && location.protocol === 'https:' && !/Chrome\/|Chromium\//.test(navigator.userAgent);
+}
+
+export function discoverDevices(devices: unknown[]) {
+  const found: Light[] = [];
+  for (const device of devices) {
+    if (!device || typeof device !== 'object') continue;
+    const d = device as Record<string, unknown>;
+    if (typeof d.deviceId !== 'string' || typeof d.lan_ip !== 'string') continue;
+    let address: URL;
+    try { address = new URL(`http://${d.lan_ip}`); } catch { continue; }
+    if (address.username || address.password) continue;
+    let light = lights.find(light => !light.simulator && light.id === d.deviceId);
+    if (light) light.address = address.origin;
+    else {
+      light = { id: d.deviceId, address: address.origin, online: false, stateKnown: false,
+        state: { deviceId: d.deviceId, build: typeof d.build === 'number' ? d.build : 0,
+          config: { name: typeof d.name === 'string' ? d.name : 'Luxio', stripType: 'WS2812', ledCount: 1, gpio: 0, channel: 100 },
+          brightness: 256, on: false, color: { ...emptyColor }, activeScriptId: '', lanIp: d.lan_ip, mode: 0 },
+        library: { colors: [], gradients: [], scripts: [] } };
+      lights.push(light);
+    }
+    found.push(light);
+  }
+  publish(); return found;
+}
+
+export async function findDevice(kind: 'usb' | 'bluetooth') {
+  // Invoke the picker before the first await to preserve the click's user activation.
+  let selected: Promise<SerialPort | BluetoothDevice>;
+  if (kind === 'usb') {
+    if (!navigator.serial) throw new Error('USB requires Google Chrome on a desktop computer. This browser does not provide Web Serial.');
+    selected = navigator.serial.requestPort();
+  } else {
+    if (!navigator.bluetooth) throw new Error('Bluetooth requires Google Chrome on desktop or Android. This browser does not provide Web Bluetooth; on iPhone, use the Luxio iOS app.');
+    selected = navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUUID] }, { namePrefix: 'Luxio' }], optionalServices: [serviceUUID] });
+  }
+  const connection = new DeviceConnection(kind, await selected);
+  try {
+    await connection.open();
+    const response = await connection.request({ id: requestID++, operation: 0 });
+    if (!response.state?.deviceId || !response.state.config) throw new Error('This is not a Luxio device.');
+    let light = lights.find(light => !light.simulator && light.id === response.state!.deviceId);
+    if (!light) {
+      light = { id: response.state.deviceId, address: '', online: true, state: response.state, library: { colors: [], gradients: [], scripts: [] } };
+      lights.push(light);
+    }
+    await connections.get(light.id)?.close();
+    Object.assign(light, { state: response.state, stateKnown: true, online: true, transport: kind, source: undefined, animationError: response.animationError, network: response.networkStatus });
+    connections.set(light.id, connection);
+    connection.ondisconnect = () => { if (connections.get(light!.id) === connection) { connections.delete(light!.id); light!.online = false; publish(); } };
+    publish(); return light;
+  } catch (error) { await connection.close(); throw error; }
+}
+
 export async function connect(input: string) {
   const address = new URL(input.includes('://') ? input.trim() : `http://${input.trim()}`);
   if (!['http:', 'https:'].includes(address.protocol) || address.username || address.password) throw new Error('Enter an IP address or hostname.');
+  if (needsChrome({ address: address.origin } as Light)) throw new Error('Use Google Chrome to connect to Luxio over local HTTP.');
   const response = await requestHttp(address.origin, { id: requestID++, operation: 0 });
   if (!response.state?.deviceId || !response.state.config) throw new Error('This address did not return a Luxio device.');
   let light = lights.find(light => !light.simulator && light.id === response.state!.deviceId);
   if (light) {
     if (light.state.animationRevision !== response.state.animationRevision || light.state.scriptName !== response.state.scriptName || light.state.activeScriptId !== response.state.activeScriptId) light.source = undefined;
-    Object.assign(light, { address: address.origin, state: response.state, network: response.networkStatus, online: true });
+    Object.assign(light, { address: address.origin, state: response.state, network: response.networkStatus, stateKnown: true, online: true, transport: undefined });
   }
   else {
-    light = { id: response.state.deviceId, address: address.origin, state: response.state, network: response.networkStatus, online: true, library: { colors: [], gradients: [], scripts: [] } };
+    light = { id: response.state.deviceId, address: address.origin, state: response.state, network: response.networkStatus, stateKnown: true, online: true, transport: undefined, library: { colors: [], gradients: [], scripts: [] } };
     lights.push(light);
   }
   publish(); return light;
@@ -81,17 +140,23 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
     let result: Partial<Response> = {};
     if (!light.simulator) {
       try {
-        result = await requestHttp(light.address, request);
+        const connection = connections.get(light.id);
+        if (light.transport && !connection) throw new Error('Device disconnected. Find Luxio again to reconnect.');
+        if (needsChrome(light)) throw new Error('Use Google Chrome for local HTTP access.');
+        result = connection ? await connection.request(request) : await requestHttp(light.address, request);
+        light.animationError = result.animationError || undefined;
         light.online = true;
         if (result.state) {
           if (light.state.animationRevision !== result.state.animationRevision || light.state.scriptName !== result.state.scriptName || light.state.activeScriptId !== result.state.activeScriptId) light.source = undefined;
-          light.state = result.state;
+          light.state = result.state; light.stateKnown = true;
         }
         if (result.networkStatus) light.network = result.networkStatus;
         if (result.script?.source && (!payload.scriptId || payload.scriptId === light.state.activeScriptId)) light.source = result.script.source;
         if (payload.operation === 31 && payload.script) light.source = payload.script.source;
         if (payload.operation !== 0 && !result.state) {
-          const status = await requestHttp(light.address, { id: requestID++, operation: 0 });
+          const statusRequest = { id: requestID++, operation: 0 };
+          const status = connection ? await connection.request(statusRequest) : await requestHttp(light.address, statusRequest);
+          light.animationError = status.animationError || undefined;
           if (status.state) light.state = status.state;
         }
       } catch (error) {
@@ -200,13 +265,13 @@ export async function loadLibrary(light: Light) {
 }
 
 export async function refresh(light: Light) {
-  if (light.simulator || queues.has(light.id)) return;
+  if (light.simulator || queues.has(light.id) || needsChrome(light) || (light.transport && !connections.has(light.id))) return;
   const revision = light.state.animationRevision;
   await send(light, { operation: 0 });
   if (light.state.mode === 2 && (!light.source || revision !== light.state.animationRevision)) await send(light, { operation: 6 });
 }
 
-export function remove(light: Light) { lights = lights.filter(item => item.id !== light.id); publish(); }
+export function remove(light: Light) { void connections.get(light.id)?.close(); connections.delete(light.id); lights = lights.filter(item => item.id !== light.id); publish(); }
 
 export function colorCSS(color: Color) {
   return `rgb(${Math.min(255, color.red + color.white + color.warmWhite + color.coolWhite * .8)},${Math.min(255, color.green + color.white + color.warmWhite * .73 + color.coolWhite * .9)},${Math.min(255, color.blue + color.white + color.warmWhite * .4 + color.coolWhite)})`;

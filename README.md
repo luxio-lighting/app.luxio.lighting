@@ -25,17 +25,17 @@ The private Sites deployment is at https://luxio-app.emilenijssen.chatgpt.site. 
 
 - Mobile keeps the iOS dark plum background, color-backed header, brightness slider, segmented mode picker, wheel, three-column preset grids, and bottom sheets.
 - Desktop keeps a persistent device sidebar and places the editor beside the preset library. The editor remains visible while scrolling through presets. Intermediate widths use a stacked layout.
-- All 24 colors, 24 gradients, and 10 animation presets come from the iOS app. Animation source is exported directly from its Swift definitions.
-- Color/white controls reflect the strip type. Gradients support 2–8 stops and require more than one LED. The wheel supports touch, mouse, and arrow keys; exact RGB colors can be entered through the browser color picker.
+- All 24 colors, 24 gradients, and 10 animation presets come from the iOS app. Animation source comes from its Swift definitions, with a runtime-selected compatibility branch for firmware without bulk Lua rendering APIs.
+- Color/white controls reflect the strip type. Gradients support 2–8 stops and require more than one LED. The wheel supports touch, mouse, and arrow keys.
 - Save, apply, search, rename, and delete independent color, gradient, and animation libraries. Live edits and built-in presets do not create library files.
 - Animation settings apply without restarting and are remembered per light and animation in this browser.
 - Settings support device configuration, relay settings, Wi-Fi scanning/setup, Matter pairing codes and QR codes, and manual firmware updates. Installation requires an explicit click; success is reported only after the device reconnects on the expected build.
 
 ## Connectivity and browser differences
 
-Discovery queries `https://api.luxio.lighting/devices` and checks each candidate directly on the local network. Manual addresses are supported. Local device state refreshes every four seconds while the tab is visible. Requests for each device are serialized; failed mutations are never automatically retried. Library pagination follows the existing firmware protocol.
+Discovery immediately lists every device returned by `https://api.luxio.lighting/devices`, even when its HTTP endpoint cannot be reached. Supported browsers then fetch local state. Safari shows Chrome guidance when a directory device is selected. Manual addresses are supported. Local device state refreshes every four seconds while the tab is visible. Requests for each device are serialized; failed mutations are never automatically retried. Library pagination follows the existing firmware protocol.
 
-Use current desktop or Android Chrome and allow local network access to control HTTP devices from an HTTPS deployment. Safari, Firefox, and other browsers may block that connection. The browser app does not implement native mDNS discovery or Bluetooth; those remain available in the iOS app. Configure a light's initial Wi-Fi using the native app or [Luxio Setup](https://setup.luxio.lighting/).
+Use current desktop or Android Chrome and allow local network access to control HTTP devices from an HTTPS deployment. Safari, Firefox, and other browsers may block that connection. The sidebar offers **Find via BLE** (Web Bluetooth on desktop/Android Chrome) and **Find via USB** (Web Serial on desktop Chrome). Device pickers require a click; connections stay in memory, and disconnected devices must be selected again. Chrome on iOS uses WebKit and does not provide these capabilities. Native mDNS discovery remains in the iOS app. Configure a light's initial Wi-Fi using the native app or [Luxio Setup](https://setup.luxio.lighting/).
 
 The simulator works without a physical light. Its configuration, active scene, animation parameters, and saved libraries persist in local storage. Data stays in this browser and is not synced to iOS or Studio. Private browsing, clearing site data, or unavailable storage affects persistence. Wi-Fi passwords are never persisted.
 
@@ -45,8 +45,8 @@ Animated device backgrounds run the same vendored Lua runtime used by Luxio's ot
 
 `npm test` exercises simulator controls and persistence, independent saved libraries, strip capability checks, animation parameter updates, all ten Lua presets across all four strip types, HTTP device discovery, paginated libraries, and failed-mutation replay protection. HTTP tests use mocked Protobuf responses and do not access physical lights.
 
-The UI has also been checked in the browser at desktop and phone widths. Hardware discovery/state reads were verified locally; firmware installation, Wi-Fi changes, relay wiring, and Matter commissioning have not been exercised against physical devices.
+The UI has also been checked in the browser at desktop and phone widths. All ten presets were also verified on Luxio S3 mini running firmware 35, restoring its original color, brightness, and power afterward. BLE/USB framing, fragmentation, pagination, and disconnect behavior are tested with mocked browser transports; physical BLE/USB connections have not been verified. firmware installation, Wi-Fi changes, relay wiring, and Matter commissioning have not been exercised against physical devices.
 
 ## Shared snapshots
 
-`shared/protocol/` and `shared/device/src/` are copied from `next/luxio-ios/shared/`. `src/presets.json` is generated by compiling `Luxio/Presets.swift` with `tools/export-ios-presets.swift` from the iOS checkout. `src/colors.json` mirrors its `scenes` array. Update these snapshots explicitly when the native app changes. `tools/build-browser.mjs` bundles the Lua engine for browser use before dev/build.
+`shared/protocol/` and `shared/device/src/` are copied from `next/luxio-ios/shared/`. `src/presets.json` was initially generated by compiling `Luxio/Presets.swift` with `tools/export-ios-presets.swift` from the iOS checkout. `src/colors.json` mirrors its `scenes` array. Preserve the compatible Lua branches (from the previous iOS/Studio presets) when updating these snapshots. `tools/build-browser.mjs` bundles the Lua engine for browser use before dev/build.

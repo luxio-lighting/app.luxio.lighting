@@ -35,7 +35,7 @@ export function Backdrop({ light }: { light: Light }) {
   const worker = useRef<Worker | null>(null);
   const state = light.state;
   const palette = state.mode === 2 ? state.animationPreview ?? [] : state.mode === 1 ? state.gradient?.colors ?? [] : [state.color];
-  const background = state.on ? paletteCSS(palette) : '#403439';
+  const rendered = useRef<number[][]>([]);
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(!document.hidden);
   const [reduced, setReduced] = useState(matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -49,26 +49,45 @@ export function Backdrop({ light }: { light: Light }) {
     return () => { observer.disconnect(); document.removeEventListener('visibilitychange', visibility); media.removeEventListener('change', motion); };
   }, []);
   useEffect(() => {
-    if (!state.on || state.mode !== 2 || !light.source || !active || !visible || reduced) return;
-    const runtime = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
-    worker.current = runtime;
-    let lastFrame = performance.now();
-    const watchdog = setInterval(() => { if (performance.now() - lastFrame > 2500) { runtime.terminate(); if (element.current) element.current.style.background = background; } }, 1000);
-    runtime.onmessage = event => {
-      lastFrame = performance.now();
-      if (event.data.error) { runtime.terminate(); if (element.current) element.current.style.background = background; }
-      if (event.data.pixels && element.current) {
-        const pixels = event.data.pixels as Color[];
-        const sampled = pixels.filter((_, index) => index % Math.max(1, Math.floor(pixels.length / 40)) === 0);
-        element.current.style.background = paletteCSS(sampled);
-      }
+    let target: number[][] = [], frame = 0;
+    const started = performance.now();
+    const from = rendered.current;
+    // Interpolate equal-size opaque palettes, including single colors and power off.
+    const paint = (now: number) => {
+      frame = 0;
+      const progress = reduced || !active || !visible || !from.length ? 1 : Math.min(1, (now - started) / 400);
+      const eased = progress * progress * (3 - 2 * progress);
+      rendered.current = target.map((color, i) => color.map((value, channel) => (from[i]?.[channel] ?? value) * (1 - eased) + value * eased));
+      if (element.current) element.current.style.background = `linear-gradient(110deg, ${rendered.current.map(rgb => `rgb(${rgb.join(',')})`).join(',')})`;
+      if (progress < 1) frame = requestAnimationFrame(paint);
     };
-    runtime.onerror = () => { runtime.terminate(); if (element.current) element.current.style.background = background; };
-    runtime.postMessage({ source: light.source, count: state.config.ledCount, stripType: state.config.stripType, parameters: state.parameters });
-    return () => { runtime.terminate(); clearInterval(watchdog); worker.current = null; };
-  }, [light.source, state.mode, state.on, state.animationRevision, state.config.ledCount, state.config.stripType, active, visible, reduced]);
+    const update = (colors: Color[]) => {
+      const rgb = (colors.length ? colors : [{ ...emptyColor, red: 64, green: 52, blue: 57 }]).map(c => [Math.min(255, c.red + c.white + c.warmWhite + c.coolWhite * .8), Math.min(255, c.green + c.white + c.warmWhite * .73 + c.coolWhite * .9), Math.min(255, c.blue + c.white + c.warmWhite * .4 + c.coolWhite)]);
+      target = Array.from({ length: 65 }, (_, index) => {
+        const position = index / 64 * (rgb.length - 1), low = Math.floor(position), high = Math.min(rgb.length - 1, low + 1);
+        return rgb[low].map((value, channel) => value + (rgb[high][channel] - value) * (position - low));
+      });
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+    update(state.on ? palette : []);
+    let runtime: Worker | null = null, watchdog: ReturnType<typeof setInterval> | undefined;
+    if (state.on && state.mode === 2 && light.source && active && visible && !reduced) {
+      runtime = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
+      worker.current = runtime;
+      let lastFrame = performance.now();
+      watchdog = setInterval(() => { if (performance.now() - lastFrame > 2500) { runtime?.terminate(); clearInterval(watchdog); update(palette); } }, 1000);
+      runtime.onmessage = event => {
+        lastFrame = performance.now();
+        if (event.data.error) { runtime?.terminate(); clearInterval(watchdog); update(palette); }
+        if (event.data.pixels) update(event.data.pixels as Color[]);
+      };
+      runtime.onerror = () => { runtime?.terminate(); clearInterval(watchdog); update(palette); };
+      runtime.postMessage({ source: light.source, count: state.config.ledCount, stripType: state.config.stripType, parameters: state.parameters });
+    }
+    return () => { cancelAnimationFrame(frame); runtime?.terminate(); clearInterval(watchdog); worker.current = null; };
+  }, [light.source, state.mode, state.on, state.animationRevision, state.config.ledCount, state.config.stripType, active, visible, reduced, JSON.stringify(palette)]);
   useEffect(() => { worker.current?.postMessage({ parameters: state.parameters ?? [] }); }, [JSON.stringify(state.parameters)]);
-  return <div className="light-backdrop" ref={element} style={{ background }} aria-hidden="true" />;
+  return <div className="light-backdrop" ref={element} aria-hidden="true" />;
 }
 
 export function ColorWheel({ colors, change, strip, gradient }: { colors: Color[]; change: (colors: Color[]) => void; strip: string; gradient: boolean }) {
@@ -136,7 +155,7 @@ export function ColorWheel({ colors, change, strip, gradient }: { colors: Color[
       <div className="wheel-modes"><button className={!white ? 'selected' : ''} aria-label="Use color wheel" aria-pressed={!white} onClick={() => { setWhite(false); const next = points.map((p, i) => i === selected ? { ...emptyColor, red: 255 } : p); setPoints(next); latest.current = next; change(next); }}><span className="rainbow-disc" /></button>
         {strip !== 'WS2812' && <button className={white ? 'selected' : ''} aria-label={strip === 'WS2805' ? 'Use white temperature' : 'Use white channel'} aria-pressed={white} onClick={() => { setWhite(true); const next = points.map((p, i) => i === selected ? strip === 'WS2805' ? { ...emptyColor, warmWhite: 128, coolWhite: 127 } : { ...emptyColor, white: 255 } : p); setPoints(next); latest.current = next; change(next); }}><span className={strip === 'WS2805' ? 'white-disc' : 'neutral-disc'} /></button>}
       </div>
-      {!white && <label className="hex-color"><input aria-label="Custom color" type="color" value={`#${[current.red, current.green, current.blue].map(c => c.toString(16).padStart(2, '0')).join('')}`} onChange={event => { const hex = event.target.value; const next = points.map((p, i) => i === selected ? { ...emptyColor, red: parseInt(hex.slice(1, 3), 16), green: parseInt(hex.slice(3, 5), 16), blue: parseInt(hex.slice(5, 7), 16) } : p); setPoints(next); latest.current = next; change(next); }} /><span>#{[current.red, current.green, current.blue].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase()}</span></label>}
+
     </div>
     {gradient && <div className="gradient-controls">
       <div className="gradient-preview" style={{ background: paletteCSS(points) }} /><div className="endpoints"><span>START</span><span>END</span></div>
@@ -145,6 +164,6 @@ export function ColorWheel({ colors, change, strip, gradient }: { colors: Color[
         <button className="point-action" aria-label="Remove point" disabled={points.length <= 2} onClick={() => { const next = points.filter((_, i) => i !== selected); setSelected(Math.min(selected, next.length - 1)); setPoints(next); latest.current = next; change(next); }}><Minus size={20} /></button>
       </div>
     </div>}
-    <p className="editor-hint">{white ? strip === 'WS2805' ? 'Slide from warm to cool white.' : 'Dedicated white channel.' : gradient ? 'Choose a point, then drag to change its color.' : 'Drag to find your perfect color.'}</p>
+
   </section>;
 }
