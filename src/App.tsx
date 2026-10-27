@@ -89,7 +89,6 @@ export default function App() {
         </article>)}
         {!devices.length && <div className="empty-devices"><span className="empty-icon"><LightbulbOff size={30} /></span><h2>No Luxio Devices Found</h2><p>Turn your ESP32 into a Luxio light.</p><button className="primary-button" onClick={() => setAdd(true)}>Flash my ESP32</button><button className="text-button simulator-link" onClick={() => open(addSimulator())}>Try the Simulator</button></div>}
       </div>
-      <footer className="sidebar-footer"><button className="secondary-button" disabled={finding} onClick={() => void find('bluetooth')}><Bluetooth size={17} /> Connect via Bluetooth</button><button className="secondary-button" disabled={finding} onClick={() => void find('usb')}><Usb size={17} /> Connect via USB</button>
         {mobileAppBanner && <section className="mobile-app-banner" aria-label="Get the mobile Luxio app">
           <div className="mobile-app-banner-heading"><p>Get the mobile Luxio app</p><button className="icon-button" aria-label="Dismiss mobile app banner" onClick={() => {
             setMobileAppBanner(false);
@@ -97,6 +96,8 @@ export default function App() {
           }}><X size={14} /></button></div>
           <div className="mobile-app-badges"><a href="https://apps.apple.com/app/luxio/id6464080905" target="_blank" rel="noopener noreferrer"><img src="/app-store.svg" alt="Download on the App Store" width={203} height={60} /></a><a href="https://play.google.com/store/apps/details?id=lighting.luxio.android" target="_blank" rel="noopener noreferrer"><img src="/play-store.svg" alt="Get it on Google Play" width={202} height={60} /></a></div>
         </section>}
+      <footer className="sidebar-footer"><button className="secondary-button" disabled={finding} onClick={() => void find('bluetooth')}><Bluetooth size={17} /> Connect via Bluetooth</button><button className="secondary-button" disabled={finding} onClick={() => void find('usb')}><Usb size={17} /> Connect via USB</button>
+        <button className="secondary-button" onClick={() => open(addSimulator())}><Monitor size={17} /> Add Virtual Luxio</button>
       </footer>
     </aside>
     <main className="main">
