@@ -95,8 +95,7 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       try { setPort(await navigator.serial.requestPort()); }
       catch (error) { if (!(error instanceof DOMException && error.name === 'NotFoundError')) setError(String(error)); }
       finally { setBusy(false); }
-    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <button className="primary-button full" disabled={busy} onClick={() => void flash()}>{busy ? <><LoaderCircle size={16} className="spinning" /> Flashing…</> : 'Install Luxio'}</button>}{installed && !busy && <button className="primary-button full" onClick={() => void configure()}>Connect to Luxio</button>}</div>}
-    {progress !== null && <progress className="flash-progress" value={progress} max={100} aria-label="Firmware installation progress" />}
+    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <div className="flash-install">{busy && <progress className="flash-progress" value={progress ?? 0} max={100} aria-label="Firmware installation progress" />}<button className="primary-button full" disabled={busy} onClick={() => void flash()}>{busy ? <><LoaderCircle size={16} className="spinning" /> Flashing…</> : 'Install Luxio'}</button></div>}{installed && !busy && <button className="primary-button full" onClick={() => void configure()}>Connect to Luxio</button>}</div>}
     {status && <p className="field-note" role="status">{status}</p>}
     {log && <details className="flash-log"><summary>Installation log</summary><pre ref={logElement}>{log}</pre></details>}
     {error && <p role="alert" className="error">{error}</p>}
