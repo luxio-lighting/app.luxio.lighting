@@ -102,8 +102,6 @@
 .dirty-dot { width: 5px; height: 5px; border-radius: 50%; background: #d4d4d4; flex-shrink: 0; }
 .sidebar-status { display: flex; gap: 7px; align-items: center; padding: 12px 10px; color: #a3a3a3; font-size: 11px; }
 .sidebar-status svg { width: 13px; }
-.sidebar-footer { height: 27px; display: flex; align-items: center; gap: 7px; padding: 0 13px; border-top: 1px solid var(--border); color: #a3a3a3; font-size: 10px; overflow: hidden; white-space: nowrap; }
-.connection-dot { width: 5px; height: 5px; background: #737373; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .editor-pane { height: 100%; display: flex; flex-direction: column; min-width: 0; }
 .editor-tabs { height: 38px; flex-shrink: 0; display: flex; gap: 10px; align-items: center; background: #171717; border-bottom: 1px solid #262626; padding: 0 12px; }
 .editor-tabs > button { color: #a3a3a3; }

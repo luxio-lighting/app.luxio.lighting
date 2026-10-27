@@ -331,7 +331,6 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
           </ContextMenuContent></ContextMenu>)}
           {loading && <div className="sidebar-status"><LoaderCircle className="animate-spin" />Loading animations…</div>}
         </div>
-        <div className="sidebar-footer"><span className="connection-dot" />{connection.name}</div>
       </aside></ResizablePanel><ResizableHandle /></>}
       <ResizablePanel minSize="250px"><section className="editor-pane">
         <div className="editor-tabs"><Button variant="ghost" size="icon-xs" aria-label="Toggle sidebar" onClick={() => setSidebar(!sidebar)}><PanelLeft /></Button>{current && <div className="editor-tab"><FileCode2 /><span className="animation-title-field" data-name={current.name || " "}><input className="animation-title" aria-label="Animation name" value={current.name} disabled={busy} onChange={event => setDocuments(previous => previous.map(document => document.id === current.id ? { ...document, name: event.target.value } : document))} /></span><span className="extension">.lua</span>{dirty && <span className="dirty-dot" />}</div>}<span className="editor-language">Lua</span></div>
@@ -364,7 +363,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
             <label className="count-control"><Input aria-label="LED count" type="number" min={1} max={1024} value={count} disabled={running || target !== 'simulator'} onChange={e => setCount(Math.min(1024, Math.max(1, Number(e.target.value) || 1)))} /><span>LEDs</span></label>
           </div><canvas ref={canvas} className="strip-canvas" aria-label="Simulated LED strip" /></CollapsibleContent>
         </Collapsible>
-        <footer className="statusbar"><span role="status">{busy ? <><LoaderCircle className="animate-spin" />Working…</> : notice ? <><Check />{notice}</> : <><span className="connection-dot" />{connection.name}</>}</span><span>Ln {position.lineNumber}, Col {position.column}<span className="status-separator">UTF-8</span><span>Lua</span></span></footer>
+        <footer className="statusbar"><span role="status">{busy ? <><LoaderCircle className="animate-spin" />Working…</> : notice ? <><Check />{notice}</> : null}</span><span>Ln {position.lineNumber}, Col {position.column}<span className="status-separator">UTF-8</span><span>Lua</span></span></footer>
       </section></ResizablePanel>
     </ResizablePanelGroup></main>
     <Dialog open={!!deleteId} onOpenChange={open => { if (!open && !busy) setDeleteId(null); }}><DialogContent><DialogHeader><DialogTitle>Delete {documents.find(d => d.id === deleteId)?.name}.lua?</DialogTitle><DialogDescription>{documents.find(d => d.id === deleteId)?.address ? 'This removes the saved animation from the device.' : 'This removes the animation from this browser.'}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" disabled={busy} onClick={() => setDeleteId(null)}>Cancel</Button><Button variant="destructive" disabled={busy} onClick={async () => {
