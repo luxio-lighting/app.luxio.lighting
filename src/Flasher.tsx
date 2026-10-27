@@ -3,6 +3,7 @@ import { LoaderCircle, Usb, Zap } from 'lucide-react';
 import { Modal } from './Controls';
 import { findDevice, type Light } from './model';
 import { connections } from './transport';
+import { disconnectFlasher } from './flashing';
 import firmwareTargets from '../shared/firmware/targets.json';
 
 export function Flasher({ close, added }: { close: () => void; added: (light: Light, configure?: boolean) => void }) {
@@ -73,17 +74,19 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       // Keep GPIO0 high and pulse EN to boot the installed application.
       await transport.setDTR(false); await transport.setRTS(true);
       await new Promise(resolve => setTimeout(resolve, 100));
-      await transport.setRTS(false); await transport.disconnect(); transport = undefined;
+      await transport.setRTS(false); await disconnectFlasher(transport); transport = undefined;
       setInstalled(true); setProgress(100); setStatus('Firmware installed. Waiting for Luxio to restart…');
       const deadline = Date.now() + 60000;
+      let connectionError = '';
       while (Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         try { added(await findDevice('usb', port), true); return; }
-        catch { /* USB can disappear briefly while the board restarts. Retry the selected port. */ }
+        catch (error) { connectionError = error instanceof Error ? error.message : String(error); }
       }
       setStatus('Firmware installed. Luxio has not reconnected yet. Check the USB cable, then try again.');
+      setError(connectionError);
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); setStatus(''); }
-    finally { await transport?.disconnect().catch(() => {}); setBusy(false); }
+    finally { if (transport) await disconnectFlasher(transport).catch(() => {}); setBusy(false); }
   }
 
   return <Modal title="Set up Luxio" close={() => { if (!busy) close(); }}><div className="sheet-body flasher-body">
