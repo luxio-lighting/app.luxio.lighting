@@ -278,5 +278,5 @@ export function colorCSS(color: Color) {
 }
 
 export function paletteCSS(colors: Color[]) {
-  return colors.length > 1 ? `linear-gradient(110deg, ${colors.map(colorCSS).join(',')})` : colors.length ? colorCSS(colors[0]) : '#403439';
+  return colors.length > 1 ? `linear-gradient(110deg, ${colors.map(colorCSS).join(',')})` : colors.length ? colorCSS(colors[0]) : '#262626';
 }

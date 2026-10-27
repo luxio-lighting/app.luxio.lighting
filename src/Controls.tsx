@@ -62,7 +62,7 @@ export function Backdrop({ light }: { light: Light }) {
       if (progress < 1) frame = requestAnimationFrame(paint);
     };
     const update = (colors: Color[]) => {
-      const rgb = (colors.length ? colors : [{ ...emptyColor, red: 64, green: 52, blue: 57 }]).map(c => [Math.min(255, c.red + c.white + c.warmWhite + c.coolWhite * .8), Math.min(255, c.green + c.white + c.warmWhite * .73 + c.coolWhite * .9), Math.min(255, c.blue + c.white + c.warmWhite * .4 + c.coolWhite)]);
+      const rgb = (colors.length ? colors : [{ ...emptyColor, red: 38, green: 38, blue: 38 }]).map(c => [Math.min(255, c.red + c.white + c.warmWhite + c.coolWhite * .8), Math.min(255, c.green + c.white + c.warmWhite * .73 + c.coolWhite * .9), Math.min(255, c.blue + c.white + c.warmWhite * .4 + c.coolWhite)]);
       target = Array.from({ length: 65 }, (_, index) => {
         const position = index / 64 * (rgb.length - 1), low = Math.floor(position), high = Math.min(rgb.length - 1, low + 1);
         return rgb[low].map((value, channel) => value + (rgb[high][channel] - value) * (position - low));

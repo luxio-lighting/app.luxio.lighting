@@ -23,7 +23,7 @@ The private Sites deployment is at https://luxio-app.emilenijssen.chatgpt.site. 
 
 ## Layout and controls
 
-- Mobile keeps the iOS dark plum background, color-backed header, brightness slider, segmented mode picker, wheel, three-column preset grids, and bottom sheets.
+- The app uses Studio and Setup’s neutral dark surfaces, typography, borders, cyan/green primary actions, and a persistent 56px app header. Mobile keeps the iOS color-backed device controls, brightness slider, mode picker, wheel, three-column preset grids, and bottom sheets.
 - Desktop keeps a persistent device sidebar and places the editor beside the preset library. The editor remains visible while scrolling through presets. Intermediate widths use a stacked layout.
 - All 24 colors, 24 gradients, and 10 animation presets come from the iOS app. Animation source comes from its Swift definitions, with a runtime-selected compatibility branch for firmware without bulk Lua rendering APIs.
 - Color/white controls reflect the strip type. Gradients support 2–8 stops and require more than one LED. The wheel supports touch, mouse, and arrow keys.
