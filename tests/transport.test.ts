@@ -10,6 +10,7 @@ test('USB handles fragmented frames, boot text, paginated libraries, serializati
   let closed = false;
   const port = {
     open: async () => {}, close: async () => { closed = true; },
+    setSignals: async (signals: SerialOutputSignals) => { assert.deepEqual(signals, { dataTerminalReady: true, requestToSend: false }); },
     readable: new ReadableStream<Uint8Array>({ start(controller) { incoming = controller; } }),
     writable: new WritableStream<Uint8Array>({ write(bytes) {
       for (const message of decoder.push(bytes)) {
@@ -70,16 +71,18 @@ test('BLE subscribes before writes, frames chunks of at most 20 bytes, and fails
 
 test('Setup hands an already selected USB port to the app without another picker and releases an existing connection', async () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  let pickerCalls = 0, opens = 0, closes = 0;
+  let pickerCalls = 0, opens = 0, closes = 0, hostReady = false;
   const decoder = new FrameDecoder();
   let incoming: ReadableStreamDefaultController<Uint8Array>;
   const port = {
     readable: undefined as ReadableStream<Uint8Array> | undefined,
     writable: undefined as WritableStream<Uint8Array> | undefined,
+    setSignals: async (signals: SerialOutputSignals) => { hostReady = signals.dataTerminalReady === true && signals.requestToSend === false; },
     open: async () => {
-      opens++;
+      opens++; hostReady = false;
       port.readable = new ReadableStream({ start(controller) { incoming = controller; } });
       port.writable = new WritableStream({ write(bytes) {
+        assert.equal(hostReady, true, 'USB CDC cannot reply until the host-ready signal is set');
         for (const body of decoder.push(bytes)) {
           const request = decodeRequest(body);
           incoming.enqueue(frame(encodeResponse({ id: request.id, error: '', scripts: [], state: {

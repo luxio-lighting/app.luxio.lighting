@@ -21,6 +21,9 @@ export class DeviceConnection {
     if (this.kind === 'usb') {
       const port = this.device as SerialPort;
       await port.open({ baudRate: 115200 });
+      // Match the CLI: native USB CDC needs DTR asserted before it can reply.
+      await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+      await new Promise(resolve => setTimeout(resolve, 150));
       if (!port.readable || !port.writable) throw new Error('USB serial streams are unavailable.');
       this.reader = port.readable.getReader(); this.writer = port.writable.getWriter();
       this.reading = (async () => {

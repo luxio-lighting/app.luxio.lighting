@@ -21,7 +21,7 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
   async function configure() {
     if (!port) return;
     setBusy(true); setError(''); setStatus('Connecting to Luxio…');
-    try { added(await findDevice('usb', port), true); }
+    try { added(await findDevice('usb'), true); }
     catch (error) { setError(String(error)); setStatus(installed ? 'Firmware installed. Wait for your board to restart, then try connecting again.' : ''); }
     finally { setBusy(false); }
   }
@@ -80,10 +80,14 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       let connectionError = '';
       while (Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 2000));
+        setStatus('Firmware installed. Connecting to Luxio via USB…');
         try { added(await findDevice('usb', port), true); return; }
-        catch (error) { connectionError = error instanceof Error ? error.message : String(error); }
+        catch (error) {
+          connectionError = error instanceof Error ? error.message : String(error);
+          setLog(previous => `${previous}\nUSB reconnect: ${connectionError}`.slice(-20000));
+        }
       }
-      setStatus('Firmware installed. Luxio has not reconnected yet. Check the USB cable, then try again.');
+      setStatus('Firmware installed. Luxio has not reconnected yet. Press RESET on the board without holding BOOT, then select its USB port below.');
       setError(connectionError);
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); setStatus(''); }
     finally { if (transport) await disconnectFlasher(transport).catch(() => {}); setBusy(false); }

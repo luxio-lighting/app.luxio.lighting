@@ -6,17 +6,19 @@ import { DeviceConnection } from '../src/transport';
 import { decodeRequest, encodeResponse, frame, FrameDecoder } from '../shared/protocol/src/index';
 
 test('the actual flashing transport releases its USB lock before the app reconnects', { timeout: 2000 }, async () => {
-  let opened = false, opens = 0, closes = 0;
+  let opened = false, opens = 0, closes = 0, hostReady = false;
   let incoming: ReadableStreamDefaultController<Uint8Array>;
   const decoder = new FrameDecoder();
   const port = {
     readable: null as ReadableStream<Uint8Array> | null,
     writable: null as WritableStream<Uint8Array> | null,
+    async setSignals(signals: SerialOutputSignals) { hostReady = signals.dataTerminalReady === true && signals.requestToSend === false; },
     async open() {
       assert.equal(opened, false, 'The flasher must close the port before reopening it');
-      opened = true; opens++;
+      opened = true; opens++; hostReady = false;
       port.readable = new ReadableStream({ start(controller) { incoming = controller; } });
       port.writable = new WritableStream({ write(bytes) {
+        assert.equal(hostReady, true, 'USB CDC must be initialized again after flashing');
         for (const message of decoder.push(bytes)) {
           const request = decodeRequest(message);
           incoming.enqueue(frame(encodeResponse({ id: request.id, error: '', scripts: [] })));
