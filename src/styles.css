@@ -27,7 +27,8 @@ h1, h2, h3, p { margin: 0; }
 .brand-dot { width: 6px; height: 6px; background: #ffa46f; border-radius: 50%; margin-top: 20px; }
 .row-actions { gap: 4px; }
 .sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; margin-bottom: 18px; }
-.sidebar-header .brand { gap: 8px; font-size: 14px; letter-spacing: -.3px; }
+.sidebar-header .brand { gap: 10px; font-size: 18px; letter-spacing: -.3px; }
+.sidebar-header .brand-mark { width: 40px; height: 40px; flex-shrink: 0; }
 .sidebar-header .brand strong { font-weight: 650; }
 .sidebar-actions { flex-shrink: 0; }
 .icon-button { display: inline-flex; justify-content: center; align-items: center; width: 36px; height: 36px; border-radius: var(--radius); flex-shrink: 0; }
