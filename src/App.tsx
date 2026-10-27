@@ -115,6 +115,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [applying, setApplying] = useState<string | null>(null);
   const [naming, setNaming] = useState<{ item: Item; rename?: boolean } | null>(null);
   const [name, setName] = useState('');
   const [menu, setMenu] = useState<Item | null>(null);
@@ -139,7 +140,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
   async function apply(item: Item, saved = false) {
     if (busy || sendingColors.current) return;
     if (item.mode === 2 && state.mode === 2 && state.on && (saved ? state.activeScriptId === item.id : state.scriptName === `Luxio · ${item.name}`)) return;
-    setBusy(true);
+    setBusy(true); setApplying(`${saved ? 'saved' : 'preset'}:${item.id}`);
     try {
       if (saved) {
         await send(light, { operation: [30, 23, 10][item.mode], colorId: item.mode === 0 ? item.id : undefined, gradientId: item.mode === 1 ? item.id : undefined, scriptId: item.mode === 2 ? item.id : undefined });
@@ -159,7 +160,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
       }
       setDraftColors(null);
     } catch (error) { notice(`Couldn’t apply ${item.name}. ${error instanceof Error ? error.message : String(error)}`); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setApplying(null); }
   }
 
   async function editColors(next: Color[]) {
@@ -192,7 +193,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
   return <div className="control-view">
     <header className="control-header"><Backdrop light={light} /><div className="control-header-content"><div className="control-topbar"><button className="icon-button glass back-button" aria-label="Back" onClick={back}><ArrowLeft size={22} /></button><div className="device-title"><h1>{state.config.name}</h1></div><button className="icon-button glass" aria-label="Luxio settings" onClick={settings}><MoreHorizontal size={23} /></button><Power on={state.on} label="Power" disabled={!light.online} change={on => { void send(light, { operation: 15, on }).catch(error => notice(String(error))); }} /></div>
       <Brightness value={state.brightness} change={brightness => { void send(light, { operation: 2, brightness }).catch(error => notice(String(error))); }} disabled={!light.online} />
-      <div className="mode-picker" role="tablist" aria-label="Light mode">{modes.map((name, index) => index === 1 && state.config.ledCount <= 1 ? null : <button key={name} role="tab" id={`mode-${index}`} aria-controls="mode-content" aria-selected={mode === index} disabled={busy} onClick={() => { setMode(index); setSearch(''); setDraftColors(null); window.scrollTo({ top: 0 }); }}>{name}</button>)}</div>
+      <div className="mode-picker" role="tablist" aria-label="Light mode">{modes.map((name, index) => index === 1 && state.config.ledCount <= 1 ? null : <button key={name} role="tab" id={`mode-${index}`} aria-controls="mode-content" aria-selected={mode === index} aria-disabled={busy} onClick={() => { if (busy) return; setMode(index); setSearch(''); setDraftColors(null); window.scrollTo({ top: 0 }); }}>{name}</button>)}</div>
     </div></header>
     {!light.online && <div className="connection-banner">This light is offline. Check its power and network, then refresh.<button onClick={() => void refresh(light).catch(error => notice(String(error)))}>Retry</button></div>}
     {light.animationError && <div className="connection-banner" role="alert">{light.animationError}</div>}
@@ -202,15 +203,15 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
         <div className="preset-grid">{filtered.map(item => {
           const selected = state.mode === item.mode && (item.mode === 2 ? state.scriptName === `Luxio · ${item.name}` : JSON.stringify(activeColors) === JSON.stringify(item.colors));
           return <div className={`preset-card ${selected ? 'selected' : ''}`} key={item.id}>
-            <button className="preset-main" aria-label={`${mode === 2 ? 'Play' : 'Apply'} ${item.name}`} aria-pressed={selected} disabled={busy || !light.online} onClick={() => void apply(item)} onContextMenu={event => { if (mode === 2) { event.preventDefault(); setMenu(item); } }}><span className="swatch" style={{ background: paletteCSS(item.colors) }}>{selected && <Check size={19} />}</span><span>{item.name}</span></button>
-            {mode === 2 && selected && <div className="animation-actions"><button aria-label={`Stop ${item.name}`} disabled={busy} onClick={() => void send(light, { operation: 11 }).catch(error => notice(String(error)))}><Square size={13} /></button>{Boolean(state.parameters?.length) && <button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}</div>}
+            <button className="preset-main" aria-label={`${mode === 2 ? 'Play' : 'Apply'} ${item.name}`} aria-pressed={selected} disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `preset:${item.id}`} onClick={() => void apply(item)} onContextMenu={event => { if (mode === 2) { event.preventDefault(); setMenu(item); } }}><span className="swatch" style={{ background: paletteCSS(item.colors) }}>{applying === `preset:${item.id}` ? <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} /> : selected && <Check size={19} />}</span><span>{item.name}</span></button>
+            {mode === 2 && selected && <div className="animation-actions"><button aria-label={`Stop ${item.name}`} aria-disabled={busy} onClick={() => { if (!busy) void send(light, { operation: 11 }).catch(error => notice(String(error))); }}><Square size={13} /></button>{Boolean(state.parameters?.length) && <button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}</div>}
             {mode === 2 && <button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>}
           </div>;
         })}</div>
-        <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" disabled={libraryLoading || busy} onClick={() => { setLibraryLoading(true); void loadLibrary(light).catch(error => notice(String(error))).finally(() => setLibraryLoading(false)); }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
+        <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" disabled={libraryLoading} aria-disabled={libraryLoading || busy} onClick={() => { if (busy || libraryLoading) return; setLibraryLoading(true); void loadLibrary(light).catch(error => notice(String(error))).finally(() => setLibraryLoading(false)); }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
         {saved.length > 0 && <label className="search-field"><Search size={16} /><input placeholder={`Search my ${plural[mode].toLowerCase()}`} aria-label={`Search my ${plural[mode].toLowerCase()}`} value={search} onChange={event => setSearch(event.target.value)} />{search && <button className="icon-button" aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</label>}
-        <div className="preset-grid saved-grid">{saved.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={busy || !light.online} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors) }} /><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && <div className="animation-actions"><button aria-label={`Stop ${item.name}`} disabled={busy} onClick={() => void send(light, { operation: 11 }).catch(error => notice(String(error)))}><Square size={13} /></button>{Boolean(state.parameters?.length) && <button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}</div>}</div>)}
-          {mode !== 2 && !search && <button className="preset-card save-card" disabled={busy || !light.online} onClick={() => { setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}
+        <div className="preset-grid saved-grid">{saved.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `saved:${item.id}`} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors) }}>{applying === `saved:${item.id}` && <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} />}</span><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && <div className="animation-actions"><button aria-label={`Stop ${item.name}`} aria-disabled={busy} onClick={() => { if (!busy) void send(light, { operation: 11 }).catch(error => notice(String(error))); }}><Square size={13} /></button>{Boolean(state.parameters?.length) && <button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}</div>}</div>)}
+          {mode !== 2 && !search && <button className="preset-card save-card" disabled={!light.online} aria-disabled={busy || !light.online} onClick={() => { if (busy) return; setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}
         </div>
         {search && !saved.some(item => item.name.toLowerCase().includes(search.toLowerCase())) && <p className="empty-library">No matching {plural[mode].toLowerCase()}.</p>}
 
