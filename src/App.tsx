@@ -89,8 +89,8 @@ export default function App() {
         </article>)}
         {!devices.length && <div className="empty-devices"><span className="empty-icon"><LightbulbOff size={30} /></span><h2>No Luxio Devices Found</h2><p>Turn your ESP32 into a Luxio light.</p><button className="primary-button" onClick={() => setAdd(true)}>Flash my ESP32</button><button className="text-button simulator-link" onClick={() => open(addSimulator())}>Try the Simulator</button></div>}
       </div>
-        {mobileAppBanner && <section className="mobile-app-banner" aria-label="Get the mobile Luxio app">
-          <div className="mobile-app-banner-heading"><p>Get the mobile Luxio app</p><button className="icon-button" aria-label="Dismiss mobile app banner" onClick={() => {
+        {mobileAppBanner && <section className="mobile-app-banner" aria-label="Get the Luxio app for iOS and Android">
+          <div className="mobile-app-banner-heading"><p>Get the Luxio app for iOS and Android</p><button className="icon-button" aria-label="Dismiss mobile app banner" onClick={() => {
             setMobileAppBanner(false);
             try { localStorage.setItem('luxio-mobile-app-banner-dismissed', 'true'); } catch { /* Dismiss for this session when storage is unavailable. */ }
           }}><X size={14} /></button></div>
