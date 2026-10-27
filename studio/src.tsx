@@ -296,9 +296,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
 
   return <TooltipProvider delayDuration={400}><div className="studio">
     <header className="toolbar">
-      <div className="brand"><img className="brand-mark" src="/luxio-jellyfish.png" alt="" width={32} height={32} /><strong>Luxio <span>Studio</span></strong></div>
       <div className="toolbar-controls">
-        <span className="studio-device">{connection.name}</span>
         <a className="documentation-link" href="/docs.html" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title="Documentation"><span>Documentation</span><ExternalLink aria-hidden="true" /></a>
         <Button variant="ghost" size="sm" disabled={busy || loading || (!running && !current?.source)} onClick={() => void test()} aria-label={running ? 'Stop test' : 'Test'} className={running ? 'test-active' : ''}>{running ? <Square className="fill-current" /> : <Play className="fill-current" />}<span>{running ? 'Stop' : 'Test'}</span></Button>
         <Button size="sm" disabled={busy || !current?.source} onClick={() => void save()}><Save />Save</Button>

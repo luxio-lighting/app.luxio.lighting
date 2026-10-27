@@ -70,8 +70,8 @@
 }
 [data-slot=button][data-variant=default]:hover { filter: brightness(1.08); }
 [data-slot=button][data-variant=default]:focus-visible { outline-color: var(--luxio-blue); }
-.studio { height: 100dvh; display: flex; flex-direction: column; }
-.toolbar { min-height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; gap: 20px; background: #1a1a1a; border-bottom: 1px solid #303030; }
+.studio { position: relative; height: 100%; display: flex; flex-direction: column; }
+.toolbar { min-height: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; gap: 20px; background: #1a1a1a; border-bottom: 1px solid #303030; }
 .brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
 .brand strong { font-size: 14px; font-weight: 650; letter-spacing: -.3px; }
 .brand strong span { color: #a3a3a3; font-weight: 450; margin-left: 3px; }
@@ -194,13 +194,12 @@
 .brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .brand strong { white-space: nowrap; font-size: 14px; font-weight: 650; }
 .brand strong span { color: #a3a3a3; font-weight: 450; }
-.studio-device { color: #a3a3a3; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
 .animation-title { min-width: 60px; width: 160px; max-width: 35vw; background: transparent; outline: none; border-bottom: 1px solid transparent; }
 .animation-title:focus { border-bottom-color: #737373; }
-@media (max-width: 720px) { .studio-device { display: none; } .toolbar-controls { justify-content: flex-end; } .editor-tabs { gap: 5px; } .editor-language { display: none; } }
+@media (max-width: 720px) { .toolbar-controls { justify-content: flex-end; } .editor-tabs { gap: 5px; } .editor-language { display: none; } }
 
 @media (max-width: 720px) {
-  .workspace [data-slot=resizable-panel]:has(.sidebar) { position: absolute; inset: 56px auto 0 0; width: min(260px, 85vw) !important; z-index: 10; box-shadow: 12px 0 28px #0007; }
+  .workspace [data-slot=resizable-panel]:has(.sidebar) { position: absolute; inset: 56px auto 0 0; width: min(260px, 85%) !important; z-index: 10; box-shadow: 12px 0 28px #0007; }
   .workspace [data-slot=resizable-panel]:has(.editor-pane) { flex: 1 !important; }
   .workspace [data-slot=resizable-handle] { display: none; }
 }
