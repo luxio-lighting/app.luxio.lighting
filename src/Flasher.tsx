@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronRight, Cpu, LoaderCircle, Usb } from 'lucide-react';
+import { LoaderCircle, Usb, Zap } from 'lucide-react';
 import { Modal } from './Controls';
-import { connect, findDevice, type Light } from './model';
+import { findDevice, type Light } from './model';
 import { connections } from './transport';
 import firmwareTargets from '../shared/firmware/targets.json';
 
@@ -13,7 +13,6 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
   const [log, setLog] = useState('');
-  const [address, setAddress] = useState('');
   const logElement = useRef<HTMLPreElement>(null);
   const supported = Boolean(navigator.serial) && 'usb' in navigator;
   useEffect(() => { if (logElement.current) logElement.current.scrollTop = logElement.current.scrollHeight; }, [log]);
@@ -76,30 +75,30 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
       await new Promise(resolve => setTimeout(resolve, 100));
       await transport.setRTS(false); await transport.disconnect(); transport = undefined;
       setInstalled(true); setProgress(100); setStatus('Firmware installed. Waiting for Luxio to restart…');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      try { added(await findDevice('usb', port), true); }
-      catch { setStatus('Firmware installed. Connect to configure your light.'); }
+      const deadline = Date.now() + 60000;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try { added(await findDevice('usb', port), true); return; }
+        catch { /* USB can disappear briefly while the board restarts. Retry the selected port. */ }
+      }
+      setStatus('Firmware installed. Luxio has not reconnected yet. Check the USB cable, then try again.');
     } catch (error) { setError(error instanceof Error ? error.message : String(error)); setStatus(''); }
     finally { await transport?.disconnect().catch(() => {}); setBusy(false); }
   }
 
   return <Modal title="Set up Luxio" close={() => { if (!busy) close(); }}><div className="sheet-body flasher-body">
-    <ol className="setup-steps" aria-label="Setup progress"><li className={!port ? 'current' : ''}><b>1</b> Connect</li><li className={port && !installed ? 'current' : ''}><b>2</b> Install</li><li className={installed ? 'current' : ''}><b>3</b> Configure</li></ol>
-    <div className="flasher-intro"><span className="empty-icon">{installed ? <Check size={32} /> : <Cpu size={32} />}</span><h3>{installed ? 'Luxio is installed' : port ? 'Install Luxio' : 'Flash your ESP32'}</h3><p>{installed ? 'Configure your LED strip and Wi-Fi to finish setup.' : port ? 'Install the latest Luxio firmware, or configure a board that already runs Luxio.' : 'Plug in your ESP32 with a USB data cable, then select it below.'}</p></div>
+    <ol className="setup-steps" aria-label="Setup progress"><li className={!port ? 'current' : ''} aria-current={!port ? 'step' : undefined}><button disabled={!port || busy || installed} onClick={() => { setPort(null); setProgress(null); setError(''); setLog(''); setStatus(''); }}><b>1</b> Connect</button></li><li className={port ? 'current' : ''} aria-current={port ? 'step' : undefined}><b>2</b> Install</li><li><b>3</b> Configure</li></ol>
+    <div className="flasher-intro"><span className="empty-icon"><Zap size={32} /></span><h3>{installed ? 'Luxio is installed' : port ? 'Install Luxio' : 'Flash your ESP32'}</h3><p>{installed ? 'Your light will open automatically when its USB connection is ready.' : port ? 'Install the latest Luxio firmware on your ESP32.' : 'Plug in your ESP32 with a USB data cable, then select it below.'}</p></div>
     {!supported && <p className="field-note">Flashing requires Google Chrome on a computer with USB. You can still use the simulator here.</p>}
     {!port ? <button className="primary-button full" disabled={!supported || busy} onClick={async () => {
       setError(''); setBusy(true);
       try { setPort(await navigator.serial.requestPort()); }
       catch (error) { if (!(error instanceof DOMException && error.name === 'NotFoundError')) setError(String(error)); }
       finally { setBusy(false); }
-    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <button className="primary-button full" disabled={busy} onClick={() => void flash()}>{busy ? <><LoaderCircle size={16} className="spinning" /> Working…</> : 'Install Luxio'}</button>}<button className={installed ? 'primary-button full' : 'secondary-button full'} disabled={busy} onClick={() => void configure()}>{installed ? 'Configure Luxio' : 'Already installed'}</button><button className="text-button" disabled={busy} onClick={() => { setPort(null); setInstalled(false); setProgress(null); setError(''); setLog(''); setStatus(''); }}>Choose another board</button></div>}
+    }}><Usb size={17} /> Connect ESP32</button> : <div className="flasher-actions">{!installed && <button className="primary-button full" disabled={busy} onClick={() => void flash()}>{busy ? <><LoaderCircle size={16} className="spinning" /> Flashing…</> : 'Install Luxio'}</button>}{installed && !busy && <button className="primary-button full" onClick={() => void configure()}>Connect to Luxio</button>}</div>}
     {progress !== null && <progress className="flash-progress" value={progress} max={100} aria-label="Firmware installation progress" />}
     {status && <p className="field-note" role="status">{status}</p>}
     {log && <details className="flash-log"><summary>Installation log</summary><pre ref={logElement}>{log}</pre></details>}
     {error && <p role="alert" className="error">{error}</p>}
-    {!busy && <details className="connect-ip"><summary>Connect by IP address</summary><form onSubmit={async event => {
-      event.preventDefault(); setBusy(true); setError('');
-      try { added(await connect(address)); } catch (error) { setError(String(error)); } finally { setBusy(false); }
-    }}><input aria-label="IP address" autoComplete="off" spellCheck={false} placeholder="192.168.1.42" required value={address} onChange={event => setAddress(event.target.value)} /><button className="secondary-button" disabled={!address.trim()}>Connect <ChevronRight size={16} /></button></form></details>}
   </div></Modal>;
 }
