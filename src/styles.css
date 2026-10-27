@@ -156,6 +156,7 @@ input[type=range]::-moz-range-thumb { width: 19px; height: 19px; background: whi
 .preset-options { position: absolute; right: 3px; top: 3px; width: 30px; height: 25px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--muted); opacity: 0; }
 .preset-card:hover .preset-options, .preset-card:focus-within .preset-options { opacity: 1; }
 .preset-options:hover { background: #ffffff15; }
+.preset-options.animation-settings { opacity: 1; }
 .saved-heading { margin-top: 34px; margin-bottom: 14px; }
 .search-field { display: flex; align-items: center; gap: 9px; background: #ffffff08; border-radius: 10px; padding: 0 12px; margin-bottom: 14px; color: var(--muted); }
 .search-field input { border: 0; min-width: 0; width: 100%; background: none; padding: 12px 0; font-size: 12px; }
