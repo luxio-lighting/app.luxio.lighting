@@ -363,7 +363,7 @@ input::placeholder { color: var(--muted); }
 .flasher-intro p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .flasher-actions { display: flex; flex-direction: column; gap: 12px; }
 .flash-install { position: relative; height: 44px; border-radius: var(--radius); overflow: hidden; transition: height .32s ease .1s, border-radius .32s ease .1s; }
-.flash-install.is-flashing { height: 12px; border-radius: 999px; }
+.flash-install.is-flashing { height: 8px; border-radius: 999px; }
 .flash-install .primary-button { position: absolute; inset: 0; min-height: 44px; transition: opacity .12s; }
 .flash-install.is-flashing .primary-button { opacity: 0; pointer-events: none; }
 .flash-progress { position: absolute; inset: 0; display: block; appearance: none; width: 100%; height: 100%; border: 0; border-radius: inherit; overflow: hidden; background: #333; opacity: 0; transition: opacity .12s; }
