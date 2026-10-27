@@ -78,6 +78,11 @@
 .brand-mark { display: block; width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; }
 .toolbar-controls { display: flex; align-items: center; gap: 8px; }
 .toolbar-controls [data-slot=button] { font-size: 12px; }
+.toolbar-controls .studio-action { height: 40px; min-width: 88px; padding: 0 16px; gap: 8px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 1px 3px #0003; }
+.toolbar-controls .studio-action svg { width: 18px; height: 18px; }
+.toolbar-controls .studio-action[data-variant=secondary] { background: #ffffff0d; border: 1px solid #ffffff18; }
+.toolbar-controls .studio-action[data-variant=secondary]:hover { background: #ffffff18; }
+.toolbar-controls .studio-action:active:not(:disabled) { transform: translateY(1px); }
 .toolbar-divider { height: 20px; width: 1px; background: #404040; margin: 0 4px; }
 .device-select { width: 220px; height: 30px !important; font-size: 12px; background: #171717 !important; border-color: #404040; box-shadow: none; }
 .device-select [data-slot=select-value] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
