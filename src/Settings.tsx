@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Copy, LoaderCircle, RefreshCw, Wifi, Bluetooth, Usb } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, LockKeyhole, Check, Copy, LoaderCircle, RefreshCw, Wifi, Bluetooth, Usb } from 'lucide-react';
 import { Modal, Power } from './Controls';
 import { remove, send, type Light } from './model';
 import { configSchema, type WifiNetwork } from '../shared/protocol/src/index';
@@ -14,7 +14,33 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [ssid, setSsid] = useState('');
   const [password, setPassword] = useState('');
-  const [secured, setSecured] = useState(true);
+  const [selectedNetwork, setSelectedNetwork] = useState<WifiNetwork | null>(null);
+  const [customNetwork, setCustomNetwork] = useState<'' | 'secured' | 'open'>('');
+  const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const scanGeneration = useRef(0);
+  const networkPicker = useRef<HTMLDivElement>(null);
+  const networkTrigger = useRef<HTMLButtonElement>(null);
+  const networkList = useRef<HTMLUListElement>(null);
+  const customSsid = useRef<HTMLInputElement>(null);
+  const secured = customNetwork ? customNetwork === 'secured' : selectedNetwork?.passwordRequired ?? false;
+  const selectedValue = customNetwork || (selectedNetwork ? JSON.stringify([selectedNetwork.ssid, selectedNetwork.passwordRequired]) : '');
+  const networkOptions = [...networks];
+  if (selectedNetwork && !networkOptions.some(item => item.ssid === selectedNetwork.ssid && item.passwordRequired === selectedNetwork.passwordRequired)) networkOptions.push(selectedNetwork);
+  const options = [
+    ...networkOptions.map(item => ({ value: JSON.stringify([item.ssid, item.passwordRequired]), label: item.ssid, network: item })),
+    { value: 'secured', label: 'Other secured network…', network: null },
+    { value: 'open', label: 'Other open network…', network: null },
+  ];
+  useEffect(() => {
+    if (!networkOpen) return;
+    (networkList.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? networkList.current?.querySelector<HTMLElement>('[role="option"]'))?.focus();
+    const dismiss = (event: PointerEvent) => { if (!networkPicker.current?.contains(event.target as Node)) setNetworkOpen(false); };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [networkOpen]);
+  useEffect(() => { if (customNetwork) customSsid.current?.focus(); }, [customNetwork]);
   const [pairing, setPairing] = useState('');
   const [qr, setQr] = useState('');
   const [copied, setCopied] = useState(false);
@@ -23,7 +49,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
   const [updateStatus, setUpdateStatus] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; scanGeneration.current++; }; }, []);
   const valid = configSchema.safeParse(config).success && new TextEncoder().encode(config.name.trim()).length <= 63 && (!config.relay?.enabled || config.relay.gpio !== config.gpio);
 
   async function save() {
@@ -33,20 +59,68 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
     finally { setBusy(false); }
   }
 
-  return <Modal title={wifi ? 'Wi-Fi' : update ? 'Firmware Update' : 'Settings'} close={() => { if (!busy) { if (wifi) { setWifi(false); setPassword(''); setError(''); } else if (update) setUpdate(false); else close(); } }}><div className="sheet-body settings-body">
-    {wifi ? <>
-      <div className="section-heading"><h3>Choose a network</h3><button className="icon-button" aria-label="Scan Wi-Fi networks" disabled={busy} onClick={() => void scanWifi()}><RefreshCw size={18} /></button></div>
-      <div className="group">{networks.map((network, index) => <button className="link-row" key={`${network.ssid}-${index}`} onClick={() => { setSsid(network.ssid); setSecured(network.passwordRequired); setPassword(''); }}><span><Wifi size={16} /> {network.ssid}</span><small>{network.rssi} dBm</small></button>)}{!networks.length && <p className="field-note">Scan for networks or enter a hidden network below.</p>}</div>
-      <form onSubmit={async event => {
-        event.preventDefault(); setBusy(true); setError('');
-        try {
-          if (new TextEncoder().encode(ssid).length > 32) throw new Error('Network names must be 32 bytes or fewer.');
-          if (secured && !((password.length >= 8 && new TextEncoder().encode(password).length <= 63) || /^[a-f\d]{64}$/i.test(password))) throw new Error('Use 8–63 characters or a 64-digit hexadecimal password.');
-          await send(light, { operation: 4, wifi: { ssid, password: secured ? password : '' } });
-          setPassword(''); notice('Wi-Fi settings sent. Luxio may disconnect while joining the network.'); setWifi(false);
-        } catch (error) { setError(String(error)); } finally { setBusy(false); }
-      }}><div className="group"><label className="setting-row"><span>Network name</span><input required maxLength={32} value={ssid} onChange={event => setSsid(event.target.value)} /></label><label className="setting-row"><span>Password required</span><input type="checkbox" checked={secured} onChange={event => { setSecured(event.target.checked); setPassword(''); }} /></label>{secured && <label className="setting-row"><span>Password</span><input required type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} /></label>}</div><p className="field-note">Credentials are sent directly to Luxio and are never stored in the app.</p><button className="primary-button full" disabled={busy || !ssid.trim()}>{busy ? 'Connecting…' : 'Connect'}</button></form>
-    </> : update ? <div className="update-panel"><span className="empty-icon"><RefreshCw size={30} className={busy ? 'spinning' : ''} /></span><h3>{updateStatus === 'complete' ? 'Update Installed' : busy ? 'Installing Update' : 'Update Available'}</h3><p>{updateStatus === 'complete' ? `Luxio is now running build ${available}.` : `Build ${available} is ready to install. Keep Luxio powered on while it updates.`}</p>{progress !== null && <progress max={1} value={progress} aria-label="Download progress" />}{updateStatus && updateStatus !== 'complete' && <p role="status">{updateStatus}</p>}{!busy && updateStatus !== 'complete' && !updateStatus && <button className="primary-button full" onClick={() => void install()}>Install</button>}{!busy && light.address && updateStatus && updateStatus !== 'complete' && <a className="secondary-button" href={light.address} target="_blank" rel="noreferrer">Open Recovery <ArrowUpRight size={16} /></a>}{updateStatus === 'complete' && <button className="primary-button full" onClick={() => { setUpdate(false); setAvailable(0); }}>Done</button>}</div> : <>
+  return <Modal title={wifi ? 'Wi-Fi' : update ? 'Firmware Update' : 'Settings'} close={() => { if (!busy) { if (wifi) { scanGeneration.current++; setScanning(false); setNetworkOpen(false); setWifi(false); setPassword(''); setError(''); } else if (update) setUpdate(false); else close(); } }}><div className="sheet-body settings-body">
+    {wifi ? <form className="wifi-form" onSubmit={async event => {
+      event.preventDefault();
+      if (busy || scanning || !selectedValue || !ssid) return;
+      setBusy(true); setError('');
+      try {
+        if (new TextEncoder().encode(ssid).length > 32) throw new Error('Network names must be 32 bytes or fewer.');
+        const passwordBytes = new TextEncoder().encode(password).length;
+        if (secured && !((passwordBytes >= 8 && passwordBytes <= 63) || /^[a-f\d]{64}$/i.test(password))) throw new Error('Use an 8–63 byte password or a 64-digit hexadecimal password.');
+        await send(light, { operation: 4, wifi: { ssid, password: secured ? password : '' } });
+        setPassword(''); notice('Wi-Fi settings sent. Luxio may disconnect while joining the network.'); setWifi(false);
+      } catch (error) { setError(String(error)); } finally { setBusy(false); }
+    }}>
+      <label id="wifi-network-label">SSID</label>
+      <div className="wifi-picker" ref={networkPicker} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setNetworkOpen(false); }} onKeyDown={event => {
+        if (event.key === 'Escape' && networkOpen) { event.preventDefault(); event.stopPropagation(); setNetworkOpen(false); networkTrigger.current?.focus(); }
+      }}>
+        <button ref={networkTrigger} id="wifi-network-trigger" type="button" className="wifi-select" disabled={busy} aria-haspopup="listbox" aria-expanded={networkOpen} aria-controls="wifi-network-options" aria-labelledby="wifi-network-label wifi-network-value" aria-describedby="wifi-scan-status" onClick={() => setNetworkOpen(!networkOpen)} onKeyDown={event => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setNetworkOpen(true); }
+        }}>
+          <span id="wifi-network-value" className={`wifi-selected ${selectedValue ? '' : 'muted'}`}>
+            {selectedNetwork && !customNetwork && <span className="wifi-network-icon" role="img" aria-label={`${selectedNetwork.rssi} dBm, ${secured ? 'password required' : 'open network'}`}>
+              <svg className={`wifi-signal strength-${selectedNetwork.rssi >= -55 ? 3 : selectedNetwork.rssi >= -70 ? 2 : selectedNetwork.rssi >= -80 ? 1 : 0}`} viewBox="0 0 24 24" aria-hidden="true"><path className="outer" d="M2 8a16 16 0 0 1 20 0"/><path className="middle" d="M5 12a11 11 0 0 1 14 0"/><path className="inner" d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>
+              {secured && <LockKeyhole className="wifi-lock" />}
+            </span>}
+            <span className="wifi-network-name">{options.find(option => option.value === selectedValue)?.label || 'Select a network'}</span>
+          </span><ChevronDown size={14} />
+        </button>
+        <button type="button" className="wifi-refresh" aria-label="Refresh Wi-Fi networks" title="Refresh Wi-Fi networks" aria-busy={scanning} disabled={busy || scanning} onClick={() => void scanWifi()}><RefreshCw size={16} className={scanning ? 'spinning' : ''} /></button>
+        <ul ref={networkList} id="wifi-network-options" className="wifi-options" role="listbox" aria-labelledby="wifi-network-label" hidden={!networkOpen} onKeyDown={event => {
+          const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]'));
+          const index = items.indexOf(document.activeElement as HTMLElement);
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); items[index]?.click(); }
+          else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+          } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            event.preventDefault();
+            [...items.slice(index + 1), ...items.slice(0, index + 1)].find(item => item.textContent?.trim().toLowerCase().startsWith(event.key.toLowerCase()))?.focus();
+          }
+        }}>
+          {options.map(option => <li key={option.value} role="option" tabIndex={-1} aria-selected={selectedValue === option.value} onClick={() => {
+            if (selectedValue !== option.value) {
+              setSelectedNetwork(option.network); setCustomNetwork(option.network ? '' : option.value as 'secured' | 'open');
+              setSsid(option.network?.ssid ?? ''); setPassword(''); setError('');
+            }
+            setNetworkOpen(false); networkTrigger.current?.focus();
+            if (!option.network) customSsid.current?.focus();
+          }}>
+            {option.network && <span className="wifi-network-icon" role="img" aria-label={`${option.network.rssi >= -55 ? 'Strong' : option.network.rssi >= -70 ? 'Good' : option.network.rssi >= -80 ? 'Fair' : 'Weak'} signal, ${option.network.rssi} dBm, ${option.network.passwordRequired ? 'password required' : 'open network'}`}>
+              <svg className={`wifi-signal strength-${option.network.rssi >= -55 ? 3 : option.network.rssi >= -70 ? 2 : option.network.rssi >= -80 ? 1 : 0}`} viewBox="0 0 24 24" aria-hidden="true"><path className="outer" d="M2 8a16 16 0 0 1 20 0"/><path className="middle" d="M5 12a11 11 0 0 1 14 0"/><path className="inner" d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>
+              {option.network.passwordRequired && <LockKeyhole className="wifi-lock" />}
+            </span>}
+            <span className="wifi-network-name">{option.label}</span>
+          </li>)}
+        </ul>
+      </div>
+      {customNetwork && <input ref={customSsid} aria-label="Custom SSID" placeholder="Enter SSID" required maxLength={32} autoComplete="off" disabled={busy} value={ssid} onChange={event => setSsid(event.target.value)} />}
+      {secured && <label className="wifi-password">Password<input required type="password" maxLength={64} autoComplete="new-password" disabled={busy} value={password} onChange={event => setPassword(event.target.value)} /></label>}
+      <span id="wifi-scan-status" className="wifi-scan-status" role="status" aria-live="polite">{scanStatus}</span>
+      <button className="primary-button full" disabled={busy || scanning || !selectedValue || !ssid || (secured && !password)}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : 'Connect'}</button>
+    </form> : update ? <div className="update-panel"><span className="empty-icon"><RefreshCw size={30} className={busy ? 'spinning' : ''} /></span><h3>{updateStatus === 'complete' ? 'Update Installed' : busy ? 'Installing Update' : 'Update Available'}</h3><p>{updateStatus === 'complete' ? `Luxio is now running build ${available}.` : `Build ${available} is ready to install. Keep Luxio powered on while it updates.`}</p>{progress !== null && <progress max={1} value={progress} aria-label="Download progress" />}{updateStatus && updateStatus !== 'complete' && <p role="status">{updateStatus}</p>}{!busy && updateStatus !== 'complete' && !updateStatus && <button className="primary-button full" onClick={() => void install()}>Install</button>}{!busy && light.address && updateStatus && updateStatus !== 'complete' && <a className="secondary-button" href={light.address} target="_blank" rel="noreferrer">Open Recovery <ArrowUpRight size={16} /></a>}{updateStatus === 'complete' && <button className="primary-button full" onClick={() => { setUpdate(false); setAvailable(0); }}>Done</button>}</div> : <>
       {!light.simulator && <><p className="field-label">CONNECTION</p><div className="group"><div className="setting-row"><span>Type</span><span className="muted">{light.transport === 'usb' ? <Usb size={15} /> : light.transport === 'bluetooth' ? <Bluetooth size={15} /> : <Wifi size={15} />} {light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}</span></div></div></>}
       <form id="settings-form" onSubmit={event => { event.preventDefault(); if (!light.simulator && light.state.config.wifi?.enabled !== false && config.wifi?.enabled === false) setConfirmWifi(true); else void save(); }}>
         <p className="field-label">LED STRIP</p><div className="group"><label className="setting-row"><span>Name</span><input aria-label="Device name" required maxLength={63} value={config.name} onChange={event => setConfig({ ...config, name: event.target.value })} /></label><label className="setting-row"><span>Type</span><select aria-label="Strip type" value={config.stripType} onChange={event => setConfig({ ...config, stripType: event.target.value as typeof config.stripType })}>{['WS2805', 'WS2814', 'WS2812', 'SK6812'].map(type => <option key={type}>{type}</option>)}</select></label><label className="setting-row"><span>LED Count</span><input aria-label="LED Count" type="number" min={1} max={1024} required value={config.ledCount || ''} onChange={event => setConfig({ ...config, ledCount: Number(event.target.value) })} /></label>{!light.simulator && <label className="setting-row"><span>Data Pin</span><input aria-label="Data Pin" type="number" min={0} max={54} required value={config.gpio} onChange={event => setConfig({ ...config, gpio: Number(event.target.value) })} /></label>}</div>
@@ -67,15 +141,29 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
   </div></Modal>;
 
   async function scanWifi() {
-    setBusy(true); setError('');
+    if (scanning) return;
+    const generation = ++scanGeneration.current;
+    setScanning(true); setScanStatus('Scanning…');
     try {
       let result = await send(light, { operation: 16 });
-      for (let i = 0; result.wifiScanning && i < 30 && mounted.current; i++) { await new Promise(resolve => setTimeout(resolve, 1000)); result = await send(light, { operation: 0 }); }
-      if (!mounted.current) return;
+      const deadline = Date.now() + 20000;
+      while (result.wifiScanning && mounted.current && generation === scanGeneration.current) {
+        if (Date.now() >= deadline) throw new Error('Scan timed out.');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        if (!mounted.current || generation !== scanGeneration.current) return;
+        result = await send(light, { operation: 0 });
+      }
+      if (!mounted.current || generation !== scanGeneration.current) return;
       if (result.wifiScanError) throw new Error(result.wifiScanError);
-      if (result.wifiScanning) throw new Error('Network scan timed out. Try again.');
-      setNetworks(result.wifiNetworks ?? []);
-    } catch (error) { setError(String(error)); } finally { setBusy(false); }
+      const found = (result.wifiNetworks ?? []).filter(item => item.ssid).sort((a, b) => b.rssi - a.rssi);
+      setNetworks(found.filter((item, index) => found.findIndex(other => other.ssid === item.ssid && other.passwordRequired === item.passwordRequired) === index));
+      setSelectedNetwork(previous => found.find(item => item.ssid === previous?.ssid && item.passwordRequired === previous.passwordRequired) ?? previous);
+      setScanStatus(found.length ? '' : 'No networks found. Enter another network or refresh.');
+    } catch (error) {
+      if (mounted.current && generation === scanGeneration.current) setScanStatus(`Could not scan networks. Enter another network or refresh. ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      if (mounted.current && generation === scanGeneration.current) setScanning(false);
+    }
   }
   async function checkUpdate() {
     setBusy(true); setError('');
