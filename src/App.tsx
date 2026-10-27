@@ -52,6 +52,7 @@ export default function App() {
   async function discover(userInitiated: boolean) {
     if (discoveringRef.current) return;
     discoveringRef.current = true; setDiscovering(true);
+    const minimumAnimation = new Promise<void>(resolve => setTimeout(resolve, 500));
     const controller = new AbortController(); discoverAbort.current = controller;
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
@@ -63,7 +64,7 @@ export default function App() {
       await Promise.allSettled(lights.filter(light => !light.simulator).map(light => refresh(light)));
       if (userInitiated && selectedLight && selectedLight.online && !needsChrome(selectedLight)) await loadLibrary(selectedLight);
     } catch (error) { if (userInitiated) setNotice(error instanceof Error && error.name !== 'AbortError' ? error.message : 'Discovery timed out. Add Luxio by its IP address.'); }
-    finally { clearTimeout(timeout); discoveringRef.current = false; setDiscovering(false); }
+    finally { clearTimeout(timeout); await minimumAnimation; discoveringRef.current = false; setDiscovering(false); }
   }
 
   async function action(light: Light, request: Omit<Request, 'id'>) {
