@@ -5,7 +5,7 @@
   <p><a href="https://app.luxio.lighting/"><strong>Open Luxio →</strong></a> · <a href="https://luxio.lighting/">Website</a> · <a href="#self-hosting">Self-hosting</a></p>
 </div>
 
-![Luxio showing sample Living Room, Studio Desk, Bedside, Bookshelf and Kitchen lights, with a color wheel and gradient presets.](docs/images/luxio-app.jpg)
+![Luxio showing sample Living Room, Studio Desk, Bedside, Bookshelf and Kitchen lights, with a color wheel and gradient presets.](docs/images/luxio-app.png)
 
 *The real Luxio interface, shown with fictional devices and sample lighting states.*
 
