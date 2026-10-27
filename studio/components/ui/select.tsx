@@ -1,3 +1,5 @@
+import { useContext } from 'react';
+import { StudioPortalContext } from '../../context';
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
@@ -55,7 +57,7 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={useContext(StudioPortalContext)}>
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(

@@ -1,3 +1,5 @@
+import { useContext } from 'react';
+import { StudioPortalContext } from '../../context';
 "use client"
 
 import * as React from "react"
@@ -22,7 +24,7 @@ function DialogTrigger({
 function DialogPortal({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  return <DialogPrimitive.Portal container={useContext(StudioPortalContext)} data-slot="dialog-portal" {...props} />
 }
 
 function DialogClose({

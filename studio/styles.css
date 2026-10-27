@@ -1,32 +1,8 @@
-@import "tailwindcss";
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --luxio-blue: #00D2FF;
-  --luxio-gradient: linear-gradient(45deg, #00D2FF, #4FFF7F);
-  --luxio-green: #4FFF7F;
-  --luxio-mint: #2EECB6;
-  --background: #141414;
-  --foreground: #fafafa;
-  --card: #171717;
-  --card-foreground: #fafafa;
-  --popover: #262626;
-  --popover-foreground: #fafafa;
-  --primary: var(--luxio-blue);
-  --primary-foreground: #0a0a0a;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #404040;
-  --accent-foreground: #fafafa;
-  --destructive: #ff8294;
-  --border: #303030;
-  --input: #404040;
-  --ring: #a3a3a3;
-  --radius: 0.4rem;
-}
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -51,10 +27,38 @@
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
 }
+@scope (.studio-scope) {
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+:scope {
+  --luxio-blue: #00D2FF;
+  --luxio-gradient: linear-gradient(45deg, #00D2FF, #4FFF7F);
+  --luxio-green: #4FFF7F;
+  --luxio-mint: #2EECB6;
+  --background: #141414;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --popover: #262626;
+  --popover-foreground: #fafafa;
+  --primary: var(--luxio-blue);
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #404040;
+  --accent-foreground: #fafafa;
+  --destructive: #ff8294;
+  --border: #303030;
+  --input: #404040;
+  --ring: #a3a3a3;
+  --radius: 0.4rem;
+}
 @layer base {
   * { border-color: var(--border); }
-  html, body, #root { margin: 0; height: 100%; overflow: hidden; }
-  body { background: var(--background); color: var(--foreground); font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+  :scope { margin: 0; height: 100%; overflow: hidden; line-height: 1.5; }
+  :scope { background: var(--background); color: var(--foreground); font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
   button, input { font: inherit; }
   button:not(:disabled) { cursor: pointer; }
   button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
@@ -202,3 +206,5 @@
 
 .close-files { display: none; }
 @media (max-width: 720px) { .close-files { display: inline-flex; margin-left: auto; margin-right: 4px; } }
+
+}

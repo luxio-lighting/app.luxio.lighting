@@ -47,9 +47,9 @@ Animated device backgrounds run the same vendored Lua runtime used by Luxio's ot
 
 ## Integrated Studio
 
-**Animation → My Animations → Create** opens Studio in a fullscreen overlay. Saved animations also offer **Edit in Studio**. The Monaco editor, Lua worker preview, parameters, file management, and documentation are bundled locally. Studio is a separate Vite HTML entry inside a same-origin frame so its editor styling does not affect the control UI; it is not an external website embed.
+**Animation → My Animations → Create** opens Studio in a fullscreen overlay. Saved animations also offer **Edit in Studio**. The Monaco editor, Lua worker preview, parameters, file management, and documentation are bundled locally. Studio is a lazy-loaded React component in the app. Scoped CSS keeps the editor styling local, and menus and dialogs render within the fullscreen editor.
 
-A typed bridge delegates requests to the parent app's selected light and serialized transport. Saves appear immediately in My Animations for USB, Bluetooth, HTTP, and the simulator. Workspace drafts persist per light in browser storage. Closing Studio stops any live test first; a failed stop remains visible for retry. Dependencies for the editor and USB flashing are loaded only when needed.
+Typed React props connect Studio to the selected light and serialized transport. Saves appear immediately in My Animations for USB, Bluetooth, HTTP, and the simulator. Workspace drafts persist per light in browser storage. Closing Studio stops any live test first; a failed stop remains visible for retry. Dependencies for the editor and USB flashing are loaded only when needed.
 
 ## Verification
 

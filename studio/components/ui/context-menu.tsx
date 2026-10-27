@@ -1,3 +1,5 @@
+import { useContext } from 'react';
+import { StudioPortalContext } from '../../context';
 import * as React from 'react';
 import { ContextMenu as ContextMenuPrimitive } from 'radix-ui';
 import { cn } from '@/lib/utils';
@@ -6,7 +8,7 @@ const ContextMenu = ContextMenuPrimitive.Root;
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
 
 function ContextMenuContent({ className, ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
-  return <ContextMenuPrimitive.Portal>
+  return <ContextMenuPrimitive.Portal container={useContext(StudioPortalContext)}>
     <ContextMenuPrimitive.Content
       data-slot="context-menu-content"
       className={cn('z-50 min-w-[8rem] max-h-(--radix-context-menu-content-available-height) overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none', className)}

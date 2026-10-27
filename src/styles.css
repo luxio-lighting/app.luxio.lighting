@@ -6,6 +6,7 @@
   --accent: #00d2ff; --luxio-gradient: linear-gradient(45deg, #00d2ff, #4fff7f); --radius: .4rem;
   --toolbar-height: calc(56px + env(safe-area-inset-top, 0px));
 }
+@scope (:root) to (.studio-scope) {
 * { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }
@@ -333,9 +334,6 @@ input::placeholder { color: var(--muted); }
 
 .app-toolbar > .brand { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .app-toolbar > .brand strong { font-weight: 650; }
-.studio-overlay { position: fixed; inset: 0; margin: 0; padding: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; background: #141414; color: #fff; overflow: hidden; }
-.studio-overlay::backdrop { background: #141414; }
-.studio-overlay iframe { display: block; border: 0; width: 100%; height: 100%; }
 .setup-steps { display: flex; justify-content: space-between; gap: 12px; list-style: none; padding: 0 0 22px; margin: 0; border-bottom: 1px solid var(--border); }
 .setup-steps li { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .setup-steps b { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; font-size: 11px; }
@@ -354,5 +352,11 @@ input::placeholder { color: var(--muted); }
 .connect-ip form { margin-top: 14px; display: flex; gap: 8px; }
 .connect-ip input { min-width: 0; flex: 1; }
 
+
+}
+.studio-overlay { position: fixed; inset: 0; margin: 0; padding: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; background: #141414; color: #fff; overflow: hidden; }
+.studio-overlay::backdrop { background: #141414; }
 .studio-loading { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; background: #141414; }
 .studio-loading > button { position: absolute; top: 10px; right: 16px; }
+.studio-loading > button { display: grid; place-items: center; width: 36px; height: 36px; color: #fff; border: 0; background: none; cursor: pointer; }
+.studio-loading > svg { animation: spin 1.3s linear infinite; }
