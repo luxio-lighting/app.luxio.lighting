@@ -1,62 +1,114 @@
-# Luxio Web App
+<div align="center">
+  <img src="public/luxio-jellyfish.png" alt="" width="80" />
+  <h1>Luxio</h1>
+  <p>Your lights, your atmosphere. In your browser.</p>
+  <p><a href="https://app.luxio.lighting/"><strong>Open Luxio →</strong></a> · <a href="https://luxio.lighting/">Website</a> · <a href="#self-hosting">Self-hosting</a></p>
+</div>
 
-Browser version of the SwiftUI app in `next/luxio-ios`. This folder is self-contained: it does not import from neighboring checkouts.
+![Luxio showing sample Living Room, Studio Desk, Bedside, Bookshelf and Kitchen lights, with a color wheel and gradient presets.](docs/images/luxio-app.jpg)
+
+*The real Luxio interface, shown with fictional devices and sample lighting states.*
+
+Control your Luxio lights, install firmware on an ESP32, and design your own animations—all in one app. The layout adapts from a phone to a wide desktop screen.
+
+## Make yourself at home
+
+- **Set the mood.** Pick a color, blend a gradient, or play an animation. Adjust brightness and save your favorites on your light.
+- **Connect your way.** Find lights over Wi-Fi, connect through Bluetooth, or plug in a USB cable.
+- **Make something move.** Open **Animation → My Animations → New** to write Lua animations with a live preview and adjustable parameters. Explore the read-only examples and simulate them before creating your own.
+- **Start with an ESP32.** Use the sidebar **+** to install Luxio, then configure your LED strip and Wi-Fi.
+- **Try it without hardware.** Choose **Try the Simulator** in the empty sidebar, or **Add Simulator** below the connection buttons.
+
+## Connect your lights
+
+Open [app.luxio.lighting](https://app.luxio.lighting/) in an up-to-date Google Chrome browser. For Wi-Fi, use the same network as your lights and allow local network access when prompted. Select a light in the sidebar to start controlling it.
+
+| Connection | What you need |
+| --- | --- |
+| Wi-Fi | Chrome on desktop or Android, access to the light’s local network, and local network permission. |
+| Bluetooth | A browser and operating system with Web Bluetooth support, such as Chrome on macOS, Windows, ChromeOS or Android. Choose **Connect via Bluetooth**. |
+| USB / firmware installation | Desktop Chrome and a USB data cable. Choose **Connect via USB**, or **+** to install firmware. |
+| Simulator | No light or hardware connection required. |
+
+Safari cannot control a light’s local HTTP endpoint from the hosted HTTPS app. On iPhone or iPad, use the [Luxio iOS app](https://apps.apple.com/app/luxio/id6464080905). There is also a [Luxio Android app](https://play.google.com/store/apps/details?id=lighting.luxio.android).
+
+Browser support depends on the operating system. See Chrome’s documentation for [Bluetooth](https://developer.chrome.com/docs/capabilities/bluetooth), [USB serial](https://developer.chrome.com/docs/capabilities/serial), and [local network access](https://developer.chrome.com/blog/local-network-access).
+
+## Self-hosting
+
+Luxio builds to a folder of static files. You do not need an application server, database, API key, or environment variables. Node.js is only needed to build the app.
+
+### 1. Build
+
+Install **Node.js 24** and Git, then run:
+
+```sh
+git clone https://github.com/luxio-lighting/app.luxio.lighting.git
+cd app.luxio.lighting
+npm ci
+npm run build
+```
+
+The finished site is in **`dist/`**. Upload its contents to your static web host.
+
+### 2. Serve over HTTPS
+
+Use a dedicated domain or subdomain, such as `https://lights.example.com/`. The app currently expects to live at **`/`**: hosting at a path such as `/luxio/` is not supported by changing Vite’s base setting alone.
+
+Use HTTPS with a certificate trusted by your devices. Bluetooth and USB require a secure context. Plain HTTP on a LAN IP address is not equivalent to `localhost`; it will not enable those browser APIs on your phone or another computer.
+
+For example, with [Caddy](https://caddyserver.com/docs/quick-starts/static-files), copy the contents of `dist/` into `/srv/luxio` and use this Caddyfile:
+
+```caddyfile
+lights.example.com {
+    root * /srv/luxio
+    encode zstd gzip
+    file_server
+}
+```
+
+Replace `lights.example.com` with your domain, point its DNS to your server, and make ports 80 and 443 reachable for Caddy’s [automatic HTTPS](https://caddyserver.com/docs/automatic-https). The Caddy process must be able to read `/srv/luxio`. Start or reload Caddy using your installation’s service manager.
+
+For a local check of the production build:
+
+```sh
+npx vite preview --host 127.0.0.1
+```
+
+Open the printed URL on the same computer. This is a [local preview server](https://vite.dev/guide/static-deploy.html), not a production hosting service.
+
+### GitHub Pages
+
+The included [GitHub Actions workflow](.github/workflows/build.yml) runs tests, builds the app, and deploys on every push to `main`.
+
+1. Fork this repository and enable GitHub Actions in your fork.
+2. Choose **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+3. Use your own custom domain and replace `public/CNAME` with that domain. Configure the same domain in Pages settings, set up its DNS, and enable **Enforce HTTPS**.
+4. Push to `main`, or run **Build and deploy Luxio** manually from the Actions tab.
+
+Without a custom domain, use a repository named `<your-username>.github.io` and delete `public/CNAME` before building. The usual project Pages URL (`<your-username>.github.io/<repository>/`) serves from a subdirectory and is not supported as-is. Do not leave Luxio’s production domain in your fork’s CNAME file.
+
+### What stays local?
+
+Light controls go directly from your browser to the device. Your hosting server does not need to be on the same network as the light, but your browser does for Wi-Fi control.
+
+Self-hosting changes where the web app is served; automatic discovery and firmware downloads still use Luxio’s online services. The app queries `api.luxio.lighting` for discovery and installation metadata, then downloads firmware from the URLs in that metadata.
+
+Simulator data and animation drafts stay in this browser’s storage. Clearing site data removes them, and moving to another hostname creates a separate workspace. Saved presets on a physical light remain on that light.
+
+To update your self-hosted copy, pull the latest changes, run `npm ci` and `npm run build` again, then replace the deployed files with the new contents of `dist/`.
+
+## Development
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite. Select a discovered light, use the sidebar **+** to flash an ESP32 or connect by IP address, or choose **Try the Simulator** from the empty sidebar.
+Open the URL printed in your terminal. Before submitting a change:
 
 ```sh
 npm run check
 npm test
 npm run build
 ```
-
-The static production output is `dist/`. No application backend, API key, or environment variables are needed.
-
-## GitHub Pages
-
-The production app is hosted at https://app.luxio.lighting. `.github/workflows/build.yml` runs tests and builds the app on every push to `main`, then deploys `dist/` to GitHub Pages. Pull requests targeting `main` run the same checks without deploying. The workflow can also be run manually from GitHub Actions. `public/CNAME` records the custom domain; the repository's Pages settings use GitHub Actions with HTTPS enforced.
-
-## Hosted preview
-
-The private Sites deployment is at https://luxio-app.emilenijssen.chatgpt.site. Sign in with the owner's ChatGPT account on each device. The site's identity and static build directory are tracked in `.openai/hosting.json`. Local edits are not deployed automatically; publish a new version to update the hosted app.
-
-## Layout and controls
-
-- The app uses Studio and Setup’s neutral dark surfaces, borders, cyan/green primary actions, with Luxio branding and device actions at the top of the sidebar. The interface uses the website’s Nunito font, bundled locally under the SIL Open Font License in `public/fonts/`. Mobile keeps the iOS color-backed device controls, brightness slider, mode picker, wheel, three-column preset grids, and bottom sheets.
-- Desktop keeps a persistent device sidebar and places the editor beside the preset library. The editor remains visible while scrolling through presets. Intermediate widths use a stacked layout.
-- All 24 colors, 24 gradients, and 10 animation presets come from the iOS app. Animation source comes from its Swift definitions, with a runtime-selected compatibility branch for firmware without bulk Lua rendering APIs.
-- Color/white controls reflect the strip type. Gradients support 2–8 stops and require more than one LED. The wheel supports touch, mouse, and arrow keys.
-- Save, apply, search, rename, and delete independent color, gradient, and animation libraries. Live edits and built-in presets do not create library files.
-- Animation settings apply without restarting and are remembered per light and animation in this browser.
-- Settings support device configuration, relay settings, Wi-Fi scanning/setup, Matter pairing codes and QR codes, and manual firmware updates. Installation requires an explicit click; success is reported only after the device reconnects on the expected build.
-
-## Connectivity and browser differences
-
-Discovery immediately lists every device returned by `https://api.luxio.lighting/devices`, even when its HTTP endpoint cannot be reached. Supported browsers then fetch local state. Safari shows Chrome guidance when a directory device is selected. Manual addresses are supported. Local device state refreshes every four seconds while the tab is visible. Requests for each device are serialized; failed mutations are never automatically retried. Library pagination follows the existing firmware protocol.
-
-Use current desktop or Android Chrome and allow local network access to control HTTP devices from an HTTPS deployment. Safari, Firefox, and other browsers may block that connection. The sidebar offers **Connect via Bluetooth** (Web Bluetooth on desktop/Android Chrome) and **Connect via USB** (Web Serial on desktop Chrome). Device pickers require a click. Each physical Luxio can have separate Wi-Fi, USB, and Bluetooth sidebar entries; reconnecting reuses the entry for that transport. Confirmed state, saved libraries, animation parameters, and Studio drafts are shared by device ID, while availability and request routing stay specific to each connection. Requests are serialized per physical device to prevent stale reads from overwriting newer changes, and every connected transport is polled. Connections stay in memory, and disconnected devices must be selected again. Chrome on iOS uses WebKit and does not provide these capabilities. Native mDNS discovery remains in the iOS app. The sidebar **+** opens the integrated Setup flasher. It detects the ESP32 variant, verifies the firmware manifest, partition layout, image chip IDs, and SHA-256 checksums before writing. After installation it reconnects the selected USB port, adds the light to the sidebar, and opens settings for LED strip and Wi-Fi configuration.
-
-The simulator works without a physical light. Its configuration, active scene, animation parameters, and saved libraries persist in local storage. Simulator data stays in this browser and is shared with the integrated Studio, but is not synced to iOS. Private browsing, clearing site data, or unavailable storage affects persistence. Wi-Fi passwords are never persisted.
-
-Animated device backgrounds run the same vendored Lua runtime used by Luxio's other web tools, in isolated Web Workers. They pause when offscreen, backgrounded, powered off, or Reduce Motion is enabled. Runtime errors or a stalled worker fall back to the preset palette. Previews are illustrative and are not frame-synchronized with hardware.
-
-## Integrated Studio
-
-**Animation → My Animations → Create** opens Studio in a rounded popup with space around the browser edges. Saved animations also offer **Edit in Studio**. The Monaco editor, Lua worker preview, parameters, file management, and documentation are bundled locally. Studio is a lazy-loaded React component in the app. Scoped CSS keeps the editor styling local, and menus and dialogs render within the editor popup.
-
-Typed React props connect Studio to the selected light and serialized transport. Saves appear immediately in My Animations for USB, Bluetooth, HTTP, and the simulator. Workspace drafts persist per light in browser storage. Closing Studio stops any live test first; a failed stop remains visible for retry. Dependencies for the editor and USB flashing are loaded only when needed.
-
-## Verification
-
-`npm test` exercises simulator controls and persistence, independent saved libraries, strip capability checks, animation parameter updates, all ten Lua presets across all four strip types, HTTP device discovery, paginated libraries, and failed-mutation replay protection. HTTP tests use mocked Protobuf responses and do not access physical lights.
-
-The UI has also been checked in the browser at desktop and phone widths. All ten presets were also verified on Luxio S3 mini running firmware 35, restoring its original color, brightness, and power afterward. BLE/USB framing, fragmentation, pagination, and disconnect behavior are tested with mocked browser transports; physical BLE/USB connections have not been verified. firmware installation, Wi-Fi changes, relay wiring, and Matter commissioning have not been exercised against physical devices.
-
-## Shared snapshots
-
-`shared/protocol/` and `shared/device/src/` are copied from `next/luxio-ios/shared/`. `src/presets.json` was initially generated by compiling `Luxio/Presets.swift` with `tools/export-ios-presets.swift` from the iOS checkout. `src/colors.json` mirrors its `scenes` array. Preserve the compatible Lua branches (from the previous iOS/Studio presets) when updating these snapshots. `tools/build-browser.mjs` bundles the Lua engine for browser use before dev/build.
