@@ -15,7 +15,11 @@ npm test
 npm run build
 ```
 
-The static production output is `dist/`. No application backend, API key, or environment variables are needed. `public/CNAME` is reserved for a future GitHub Pages deployment at `app.luxio.lighting`; that custom domain is not configured by the Sites deployment.
+The static production output is `dist/`. No application backend, API key, or environment variables are needed.
+
+## GitHub Pages
+
+The production app is hosted at https://app.luxio.lighting. `.github/workflows/build.yml` runs tests and builds the app on every push to `main`, then deploys `dist/` to GitHub Pages. Pull requests targeting `main` run the same checks without deploying. The workflow can also be run manually from GitHub Actions. `public/CNAME` records the custom domain; the repository's Pages settings use GitHub Actions with HTTPS enforced.
 
 ## Hosted preview
 
