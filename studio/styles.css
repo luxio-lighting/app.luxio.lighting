@@ -91,7 +91,10 @@
 .workspace { flex: 1; min-height: 0; }
 .sidebar { height: 100%; display: flex; flex-direction: column; background: #171717; }
 .pane-heading { display: flex; align-items: center; justify-content: space-between; height: 44px; flex: 0 0 auto; padding: 0 13px 0 17px; font-size: 11px; font-weight: 650; color: #a3a3a3; }
-.file-list { overflow: auto; padding: 0 7px 12px; flex: 1; }
+.file-sections { overflow: auto; flex: 1; min-height: 0; }
+.file-list { padding: 0 7px 12px; }
+.examples-heading { border-top: 1px solid #303030; }
+.examples-heading > span:last-child { font-size: 10px; font-weight: 400; }
 .file-row { display: flex; align-items: center; border-radius: 5px; margin-bottom: 2px; height: 32px; }
 .file-row:hover { background: #262626; }
 .file-row.selected { background: #303030; box-shadow: inset 2px 0 #d4d4d4; color: #fafafa; }
@@ -113,7 +116,6 @@
 .editor-tab { align-self: stretch; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d4d4d4; padding: 0 10px; font-size: 12px; max-width: 80%; }
 .editor-tab svg { width: 14px; height: 14px; color: var(--foreground); flex-shrink: 0; }
 .editor-tab .extension { flex-shrink: 0; }
-.editor-language { color: #737373; font-size: 11px; margin-left: auto; }
 .editor-container { flex: 1; min-height: 80px; position: relative; }
 .editor-empty { height: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; color: #a3a3a3; font-size: 12px; }
 .editor-empty svg { width: 30px; height: 30px; color: #737373; }
@@ -201,7 +203,7 @@
 .animation-title-field::after { content: attr(data-name); grid-area: 1 / 1; white-space: pre; visibility: hidden; padding-right: 2px; overflow: hidden; }
 .animation-title { grid-area: 1 / 1; width: 0; min-width: 100%; background: transparent; outline: none; border-bottom: 1px solid transparent; }
 .animation-title:focus { border-bottom-color: #737373; }
-@media (max-width: 720px) { .toolbar-controls { justify-content: flex-end; } .editor-tabs { gap: 5px; } .editor-language { display: none; } }
+@media (max-width: 720px) { .toolbar-controls { justify-content: flex-end; } .editor-tabs { gap: 5px; } }
 
 @media (max-width: 720px) {
   .workspace [data-slot=resizable-panel]:has(.sidebar) { position: absolute; inset: 56px auto 0 0; width: min(260px, 85%) !important; z-index: 10; box-shadow: 12px 0 28px #0007; }

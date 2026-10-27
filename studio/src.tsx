@@ -17,6 +17,8 @@ import type { Color, Request } from '../shared/protocol/src/index';
 import type { StudioConnection } from '../src/Studio';
 import { parsePreview } from '../shared/protocol/src/preview';
 import { parseParameters, type AnimationParameter } from '../shared/protocol/src/parameters';
+import presets from '../src/presets.json';
+import { starterSource } from './starter';
 import './styles.css';
 
 // randomUUID is restricted to secure contexts; keep HTTP development usable.
@@ -36,7 +38,7 @@ monaco.editor.defineTheme('luxio', {
   colors: { 'editor.background': '#141414', 'editor.foreground': '#e5e5e5', 'editorLineNumber.foreground': '#737373', 'editorLineNumber.activeForeground': '#d4d4d4', 'editor.lineHighlightBackground': '#1f1f1f', 'editor.selectionBackground': '#ffffff26', 'editorCursor.foreground': '#fafafa', 'editorIndentGuide.background1': '#303030', 'editorWidget.background': '#262626' },
 });
 
-type Document = { id: string; name: string; source: string | null; mode: number; address?: string; scriptId?: string; savedName: string; savedSource: string | null; parameters?: AnimationParameter[]; savedParameters?: AnimationParameter[] };
+type Document = { id: string; name: string; source: string | null; mode: number; address?: string; scriptId?: string; savedName: string; savedSource: string | null; parameters?: AnimationParameter[]; savedParameters?: AnimationParameter[]; example?: boolean };
 export default function StudioEditor({ connection, close, closeAction }: { connection: StudioConnection; close: () => void; closeAction: RefObject<(() => Promise<void>) | null> }) {
   const { target, item } = connection;
   const workspaceKey = `luxio-studio-workspace-${target}`;
@@ -49,7 +51,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
     } catch { /* Keep the editor usable without browser storage. */ }
     let selected = item && documents.find(document => document.scriptId === item.id);
     if (!selected) {
-      const source = item?.source ?? '-- @preview 00d2ff,4fff7f\nfunction setup()\nend\n\nfunction loop()\n  luxio_fill(0, 210, 255)\nend\n';
+      const source = item?.source ?? starterSource;
       selected = { id: crypto.randomUUID(), name: item?.name ?? 'Untitled', source, mode: 2, address: target, scriptId: item?.id, savedName: item?.name ?? '', savedSource: item?.source ?? '' };
       documents.push(selected);
     }
@@ -60,6 +62,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
     return connection.request(request);
   }
   const [documents, setDocuments] = useState(launch.documents);
+  const [examples, setExamples] = useState<Document[]>(() => presets.filter(preset => !preset.isGradient).map(preset => ({ id: `example-${preset.name}`, name: preset.name, source: preset.source, savedName: preset.name, savedSource: preset.source, mode: 2, example: true })));
   const [selected, setSelected] = useState(launch.selected);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -83,8 +86,8 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
   const cleanup = useRef<Promise<void> | null>(null);
   const actions = useRef({ save: () => {}, test: () => {} });
   const visible = documents.filter(d => target === 'simulator' ? !d.address : d.address === target);
-  const current = visible.find(d => d.id === selected) ?? visible[0];
-  const dirty = current && (current.name !== current.savedName || current.source !== current.savedSource || JSON.stringify(current.parameters ?? []) !== JSON.stringify(current.savedParameters ?? []));
+  const current = examples.find(d => d.id === selected) ?? visible.find(d => d.id === selected) ?? visible[0];
+  const dirty = current && !current.example && (current.name !== current.savedName || current.source !== current.savedSource || JSON.stringify(current.parameters ?? []) !== JSON.stringify(current.savedParameters ?? []));
   let parameters: AnimationParameter[] = [], parameterError = '';
   try { parsePreview(current?.source ?? ''); parameters = parseParameters(current?.source ?? '', current?.parameters ?? []); }
   catch (error) { parameterError = String(error); }
@@ -178,7 +181,8 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
   async function changeParameter(parameter: AnimationParameter, value: number) {
     if (!current) return;
     const values = parameters.map(p => p.name === parameter.name ? { ...p, value } : p);
-    setDocuments(previous => previous.map(d => d.id === current.id ? { ...d, parameters: values } : d));
+    if (current.example) setExamples(previous => previous.map(d => d.id === current.id ? { ...d, parameters: values } : d));
+    else setDocuments(previous => previous.map(d => d.id === current.id ? { ...d, parameters: values } : d));
     setNotice('');
     if (running && playback.current?.documentId === current.id && playback.current.source === current.source) {
       worker.current?.postMessage({ parameters: values });
@@ -220,10 +224,10 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
       await stop();
       if (wasRunning) return;
       if (!current?.source) throw new Error('Select an animation to test.');
-      const source = monaco.editor.getModel(monaco.Uri.parse(`${current.id}.lua`))?.getValue() ?? current.source;
+      const source = current.example ? current.source : monaco.editor.getModel(monaco.Uri.parse(`${current.id}.lua`))?.getValue() ?? current.source;
       parsePreview(source);
       const values = parseParameters(source, current.parameters ?? []);
-      if (target !== 'simulator') {
+      if (target !== 'simulator' && !current.example) {
         if (values.length) {
           const requiredBuild = /^\s*-- @parameter [^,]+,\s*(Slider|Checkbox)\s*,/m.test(source) ? 21 : 14;
           if (((await requestDevice(target, { id: nextId.current++, operation: 0 })).state?.build ?? 0) < requiredBuild) throw new Error(`These animation parameters require firmware build ${requiredBuild} or newer.`);
@@ -251,7 +255,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
   }
 
   async function save(doc = current) {
-    if (busy || !doc) return;
+    if (busy || !doc || doc.example) return;
     setBusy(true); setMessage(''); setNotice('');
     try {
       const name = doc.name.trim();
@@ -298,7 +302,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
     <header className="toolbar">
       <div className="toolbar-controls">
         <a className="documentation-link" href="/docs.html" target="_blank" rel="noopener noreferrer" aria-label="Documentation" title="Documentation"><span>Documentation</span><ExternalLink aria-hidden="true" /></a>
-        <Button variant="secondary" size="lg" disabled={busy || loading || (!running && !current?.source)} onClick={() => void test()} aria-label={running ? 'Stop test' : 'Test'} className={`studio-action ${running ? 'test-active' : ''}`}>{running ? <Square className="fill-current" /> : <Play className="fill-current" />}<span>{running ? 'Stop' : 'Test'}</span></Button>
+        <Button variant="secondary" size="lg" disabled={busy || loading || (!running && !current?.source)} onClick={() => void test()} aria-label={running ? 'Stop test' : current?.example ? 'Simulate' : 'Test'} className={`studio-action ${running ? 'test-active' : ''}`}>{running ? <Square className="fill-current" /> : <Play className="fill-current" />}<span>{running ? 'Stop' : current?.example ? 'Simulate' : 'Test'}</span></Button>
         <Button size="lg" className="studio-action" disabled={busy || !current?.source || !dirty} onClick={() => void save()}><Save />Save</Button>
         <Button variant="ghost" size="icon-sm" aria-label="Close Studio" disabled={busy} onClick={() => void closeAction.current?.()}><X /></Button>
       </div>
@@ -307,9 +311,9 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
       {sidebar && <><ResizablePanel defaultSize="230px" minSize="170px" maxSize="360px"><aside className="sidebar">
         <div className="pane-heading"><span>Animations</span><Button variant="ghost" size="icon-xs" className="close-files" aria-label="Hide animations" onClick={() => setSidebar(false)}><X /></Button><Button variant="ghost" size="icon-xs" aria-label="New animation" disabled={busy} onClick={() => {
           const id = crypto.randomUUID(); const name = 'Untitled';
-          setDocuments(previous => [...previous, { id, name, address: target === 'simulator' ? undefined : target, source: '-- @preview 00d2ff,4fff7f\nfunction setup()\nend\n\nfunction loop()\n  luxio_fill(0, 210, 255)\nend\n', mode: 2, savedName: '', savedSource: '' }]); setSelected(id); setRename(id);
+          setDocuments(previous => [...previous, { id, name, address: target === 'simulator' ? undefined : target, source: starterSource, mode: 2, savedName: '', savedSource: '' }]); setSelected(id); setRename(id);
         }}><Plus /></Button></div>
-        <div className="file-list" aria-label="Animations">
+        <div className="file-sections"><div className="file-list" aria-label="Animations">
           {visible.map(doc => <ContextMenu key={doc.id} onOpenChange={open => { if (open) setSelected(doc.id); }}><ContextMenuTrigger asChild disabled={busy}><div className={`file-row ${current?.id === doc.id ? 'selected' : ''}`}>
             <button className="file-select" aria-label={`Open ${doc.name}.lua`} disabled={busy} onClick={() => { setSelected(doc.id); setMessage(''); setNotice(''); }} onDoubleClick={() => setRename(doc.id)}><FileCode2 /><span className="file-title">{rename === doc.id ? <input autoFocus disabled={busy} aria-label="Animation name" defaultValue={doc.name} onClick={e => e.stopPropagation()} onFocus={e => e.target.select()} onBlur={e => {
               const name = e.currentTarget.value.trim(); setRename(null);
@@ -331,9 +335,15 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
           </ContextMenuContent></ContextMenu>)}
           {loading && <div className="sidebar-status"><LoaderCircle className="animate-spin" />Loading animations…</div>}
         </div>
+        <div className="pane-heading examples-heading"><span>Examples</span><span>Read-only</span></div>
+        <div className="file-list" aria-label="Examples">
+          {examples.map(doc => <div key={doc.id} className={`file-row ${current?.id === doc.id ? 'selected' : ''}`}>
+            <button className="file-select" aria-label={`Open example ${doc.name}.lua`} disabled={busy} onClick={() => { setSelected(doc.id); setRename(null); setMessage(''); setNotice(''); }}><FileCode2 /><span className="file-title"><span>{doc.name}</span><small>.lua</small></span></button>
+          </div>)}
+        </div></div>
       </aside></ResizablePanel><ResizableHandle /></>}
       <ResizablePanel minSize="250px"><section className="editor-pane">
-        <div className="editor-tabs"><Button variant="ghost" size="icon-xs" aria-label="Toggle sidebar" onClick={() => setSidebar(!sidebar)}><PanelLeft /></Button>{current && <div className="editor-tab"><FileCode2 /><span className="animation-title-field" data-name={current.name || " "}><input className="animation-title" aria-label="Animation name" value={current.name} disabled={busy} onChange={event => setDocuments(previous => previous.map(document => document.id === current.id ? { ...document, name: event.target.value } : document))} /></span><span className="extension">.lua</span>{dirty && <span className="dirty-dot" />}</div>}<span className="editor-language">Lua</span></div>
+        <div className="editor-tabs"><Button variant="ghost" size="icon-xs" aria-label="Toggle sidebar" onClick={() => setSidebar(!sidebar)}><PanelLeft /></Button>{current && <div className="editor-tab"><FileCode2 /><span className="animation-title-field" data-name={current.name || " "}><input className="animation-title" aria-label="Animation name" value={current.name} readOnly={current.example} disabled={busy} onChange={event => setDocuments(previous => previous.map(document => document.id === current.id ? { ...document, name: event.target.value } : document))} /></span><span className="extension">.lua</span>{dirty && <span className="dirty-dot" />}</div>}</div>
         <div className="editor-container">{current ? <Editor path={`${current.id}.lua`} value={current.source ?? ''} language="lua" theme="luxio" loading={<span className="editor-empty">Loading editor…</span>} onMount={editor => {
           editor.onDidChangeCursorPosition(event => setPosition(event.position));
           editor.onDidChangeModelContent(() => {
@@ -341,10 +351,13 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
             const id = model.uri.path.replace(/^\//, '').replace(/\.lua$/, ''); const source = model.getValue();
             setDocuments(previous => previous.map(d => d.id === id && d.source !== null && d.source !== source ? { ...d, source } : d));
           });
-        }} options={{ readOnly: busy || current.source === null, fontSize: 13, fontFamily: '"SF Mono", Menlo, Monaco, monospace', lineHeight: 23, minimap: { enabled: false }, padding: { top: 18 }, scrollBeyondLastLine: false, smoothScrolling: true, tabSize: 2, automaticLayout: true, renderLineHighlight: 'all', overviewRulerLanes: 0, hideCursorInOverviewRuler: true, scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 }, fixedOverflowWidgets: true }} /> : <div className="editor-empty"><FileCode2 /><p>Select an animation or create a new one.</p></div>}</div>
+        }} options={{ readOnly: busy || !!current.example || current.source === null, fontSize: 13, fontFamily: '"SF Mono", Menlo, Monaco, monospace', lineHeight: 23, minimap: { enabled: false }, padding: { top: 18 }, scrollBeyondLastLine: false, smoothScrolling: true, tabSize: 2, automaticLayout: true, renderLineHighlight: 'all', overviewRulerLanes: 0, hideCursorInOverviewRuler: true, scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 }, fixedOverflowWidgets: true }} /> : <div className="editor-empty"><FileCode2 /><p>Select an animation or create a new one.</p></div>}</div>
         {message && <div className="error-message" role="alert"><span>{message}</span><Button variant="ghost" size="icon-xs" aria-label="Dismiss error" onClick={() => setMessage('')}><X /></Button></div>}
         {(parameters.length > 0 || parameterError) && <section className="parameter-panel" aria-label="Animation parameters">
-        <div className="parameter-heading"><span>Parameters</span>{current?.parameters?.length ? <Button variant="ghost" size="xs" disabled={busy || running} onClick={() => setDocuments(previous => previous.map(d => d.id === current?.id ? { ...d, parameters: [] } : d))}>Reset values</Button> : null}</div>
+        <div className="parameter-heading"><span>Parameters</span>{current?.parameters?.length ? <Button variant="ghost" size="xs" disabled={busy || running} onClick={() => {
+          if (current.example) setExamples(previous => previous.map(d => d.id === current.id ? { ...d, parameters: [] } : d));
+          else setDocuments(previous => previous.map(d => d.id === current.id ? { ...d, parameters: [] } : d));
+        }}>Reset values</Button> : null}</div>
         {parameterError ? <p className="parameter-error" role="alert">{parameterError}</p> : parameters.map(parameter => <label className="parameter-control" key={parameter.name}>
           <span>{parameter.name}</span>
           {parameter.boolean ? <input type="checkbox" checked={parameter.value !== 0} disabled={busy || (running && playback.current?.source !== current?.source)} onChange={event => void changeParameter(parameter, event.target.checked ? 1 : 0)} />  : parameter.numberInput ? <Input key={`${current?.id}-${parameter.name}-${parameter.value}`} type="number" min={parameter.minimum} max={parameter.maximum} step="any" defaultValue={parameter.value} disabled={busy || (running && playback.current?.source !== current?.source)} onBlur={event => {
