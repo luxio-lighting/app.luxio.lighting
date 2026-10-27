@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Bluetooth, Usb, LightbulbOff, LoaderCircle, Monitor, MoreHorizontal, Plus, RefreshCw, Search, SlidersHorizontal, Wifi, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Bluetooth, Usb, LightbulbOff, LoaderCircle, Monitor, MoreHorizontal, Plus, RefreshCw, SlidersHorizontal, Wifi, X } from 'lucide-react';
 import { addSimulator, discoverDevices, findDevice, needsChrome, emptyColor, lights, loadLibrary, modes, paletteCSS, plural, refresh, send, snapshot, storageError, subscribe, type Item, type Light } from './model';
 import { Backdrop, Brightness, ColorWheel, Modal, Power } from './Controls';
 import { Settings } from './Settings';
@@ -115,7 +115,6 @@ export default function App() {
 function Control({ light, back, settings, notice }: { light: Light; back: () => void; settings: () => void; notice: (value: string) => void }) {
   const state = light.state;
   const [mode, setMode] = useState(state.mode ?? 0);
-  const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [applying, setApplying] = useState<string | null>(null);
@@ -188,7 +187,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
       if (item.mode === 0) await send(light, { operation: naming.rename ? 28 : 27, savedColor: { id: item.id, name: trimmed, color: item.colors[0] } });
       else if (item.mode === 1) await send(light, { operation: naming.rename ? 21 : 20, gradient: { id: item.id, name: trimmed, colors: item.colors } });
       else await send(light, { operation: naming.rename ? 8 : 7, script: { id: item.id, name: trimmed, source: item.source!, mode: 2, parameters: parseParameters(item.source!, state.scriptName === `Luxio · ${item.name}` || state.activeScriptId === item.id ? state.parameters : undefined) } });
-      await loadLibrary(light); setNaming(null); setSearch(''); notice(naming.rename ? 'Renamed.' : `Saved to ${light.simulator ? 'your simulator' : light.state.config.name}.`);
+      await loadLibrary(light); setNaming(null); notice(naming.rename ? 'Renamed.' : `Saved to ${light.simulator ? 'your simulator' : light.state.config.name}.`);
     } catch (error) { notice(`Couldn’t save. ${error instanceof Error ? error.message : String(error)}`); }
     finally { setBusy(false); }
   }
@@ -197,7 +196,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
   return <div className="control-view">
     <header className="control-header"><Backdrop light={light} /><div className="control-header-content"><div className="control-topbar"><button className="icon-button glass back-button" aria-label="Back" onClick={back}><ArrowLeft size={22} /></button><div className="device-title"><h1>{state.config.name}</h1></div><button className="icon-button glass more-button" aria-label="Luxio settings" onClick={settings}><MoreHorizontal size={23} /></button><Power on={state.on} label="Power" disabled={!light.online} change={on => { void send(light, { operation: 15, on }).catch(error => notice(String(error))); }} /></div>
       <Brightness value={state.brightness} change={brightness => { void send(light, { operation: 2, brightness }).catch(error => notice(String(error))); }} disabled={!light.online} />
-      <div className="mode-picker" role="tablist" aria-label="Light mode">{modes.map((name, index) => index === 1 && state.config.ledCount <= 1 ? null : <button key={name} role="tab" id={`mode-${index}`} aria-controls="mode-content" aria-selected={mode === index} aria-disabled={busy} onClick={() => { if (busy) return; setMode(index); setSearch(''); setDraftColors(null); window.scrollTo({ top: 0 }); }}>{name}</button>)}</div>
+      <div className="mode-picker" role="tablist" aria-label="Light mode">{modes.map((name, index) => index === 1 && state.config.ledCount <= 1 ? null : <button key={name} role="tab" id={`mode-${index}`} aria-controls="mode-content" aria-selected={mode === index} aria-disabled={busy} onClick={() => { if (busy) return; setMode(index); setDraftColors(null); window.scrollTo({ top: 0 }); }}>{name}</button>)}</div>
     </div></header>
     {!light.online && <div className="connection-banner">This light is offline. Check its power and network, then refresh.<button onClick={() => void refresh(light).catch(error => notice(String(error)))}>Retry</button></div>}
     {light.animationError && <div className="connection-banner" role="alert">{light.animationError}</div>}
@@ -212,12 +211,10 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
           </div>;
         })}</div>
         <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" disabled={libraryLoading} aria-disabled={libraryLoading || busy} onClick={() => { if (busy || libraryLoading) return; setLibraryLoading(true); void loadLibrary(light).catch(error => notice(String(error))).finally(() => setLibraryLoading(false)); }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
-        {mode !== 2 && saved.length > 0 && <label className="search-field"><Search size={16} /><input placeholder={`Search my ${plural[mode].toLowerCase()}`} aria-label={`Search my ${plural[mode].toLowerCase()}`} value={search} onChange={event => setSearch(event.target.value)} />{search && <button className="icon-button" aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</label>}
-        <div className="preset-grid saved-grid">{saved.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `saved:${item.id}`} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors, item.mode === 2 ? 90 : 110) }}>{applying === `saved:${item.id}` && <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} />}</span><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && Boolean(state.parameters?.length) && <div className="animation-actions"><button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button></div>}</div>)}
-          {mode === 2 && !search && <button className="preset-card save-card" disabled={!light.online || busy} onClick={() => setStudio({})}><span className="swatch"><Plus size={24} /></span><span>New</span></button>}
-          {mode !== 2 && !search && <button className="preset-card save-card" disabled={!light.online} aria-disabled={busy || !light.online} onClick={() => { if (busy) return; setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}
+        <div className="preset-grid saved-grid">{saved.map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `saved:${item.id}`} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors, item.mode === 2 ? 90 : 110) }}>{applying === `saved:${item.id}` && <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} />}</span><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && Boolean(state.parameters?.length) && <div className="animation-actions"><button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button></div>}</div>)}
+          {mode === 2 && <button className="preset-card save-card" disabled={!light.online || busy} onClick={() => setStudio({})}><span className="swatch"><Plus size={24} /></span><span>New</span></button>}
+          {mode !== 2 && <button className="preset-card save-card" disabled={!light.online} aria-disabled={busy || !light.online} onClick={() => { if (busy) return; setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}
         </div>
-        {search && !saved.some(item => item.name.toLowerCase().includes(search.toLowerCase())) && <p className="empty-library">No matching {plural[mode].toLowerCase()}.</p>}
 
       </section>
     </div>
