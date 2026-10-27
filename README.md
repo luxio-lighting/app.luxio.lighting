@@ -1,13 +1,11 @@
 <div align="center">
   <img src="public/luxio-jellyfish.png" alt="" width="80" />
-  <h1>Luxio</h1>
+  <h1>Luxio Web App</h1>
   <p>Your lights, your atmosphere. In your browser.</p>
   <p><a href="https://app.luxio.lighting/"><strong>Open Luxio →</strong></a> · <a href="https://luxio.lighting/">Website</a> · <a href="#self-hosting">Self-hosting</a></p>
 </div>
 
 ![Luxio showing sample Living Room, Studio Desk, Bedside, Bookshelf and Kitchen lights, with a color wheel and gradient presets.](docs/images/luxio-app.png)
-
-*The real Luxio interface, shown with fictional devices and sample lighting states.*
 
 Control your Luxio lights, install firmware on an ESP32, and design your own animations—all in one app. The layout adapts from a phone to a wide desktop screen.
 
