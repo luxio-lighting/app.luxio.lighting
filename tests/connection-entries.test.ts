@@ -151,6 +151,11 @@ for (const kind of ['wifi', 'usb', 'bluetooth'] as const) test(`factory reset ov
   assert.equal(connections.has(bluetoothLight.id), false);
   assert.equal(JSON.parse(memory.get('luxio-app-v1')!).some((light: {id: string}) => light.id === selected.id), false);
   assert.ok(model.lights.includes(unrelated));
+  model.discoverDevices([{ deviceId: state.deviceId, lan_ip: '192.0.2.9', name: 'Stale registration' }]);
+  assert.equal(model.lights.some(light => light.state.deviceId === state.deviceId), false);
+  assert.ok(JSON.parse(memory.get('luxio-reset-devices-v1')!).some(([id]: [string]) => id === state.deviceId));
+  const [fresh] = model.discoverDevices([{ deviceId: `${state.deviceId}-new`, lan_ip: '192.0.2.9', name: 'Luxio' }]);
+  assert.equal(fresh.state.deviceId, `${state.deviceId}-new`);
 });
 
 test.after(async () => {

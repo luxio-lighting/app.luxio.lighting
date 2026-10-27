@@ -14,7 +14,15 @@ export let storageError = '';
 const listeners = new Set<() => void>();
 const queues = new Map<string, Promise<unknown>>();
 const refreshing = new Set<string>();
+const resetDevices = new Map<string, number>();
 let requestID = 1;
+
+try {
+  const retired = JSON.parse(localStorage.getItem('luxio-reset-devices-v1') ?? '[]');
+  if (Array.isArray(retired)) for (const entry of retired) {
+    if (Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'number' && entry[1] > Date.now()) resetDevices.set(entry[0], entry[1]);
+  }
+} catch { /* A malformed reset history must not prevent saved devices loading. */ }
 
 try {
   const stored = JSON.parse(localStorage.getItem('luxio-app-v1') ?? '[]');
@@ -48,7 +56,11 @@ try {
 
 export function publish() {
   lights = [...lights];
-  try { localStorage.setItem('luxio-app-v1', JSON.stringify(lights)); }
+  try {
+    localStorage.setItem('luxio-app-v1', JSON.stringify(lights));
+    for (const [id, expires] of resetDevices) if (expires <= Date.now()) resetDevices.delete(id);
+    localStorage.setItem('luxio-reset-devices-v1', JSON.stringify([...resetDevices]));
+  }
   catch { storageError = 'Your browser could not save changes. Keep this tab open to retain your simulator and saved items.'; }
   listeners.forEach(listener => listener());
 }
@@ -78,6 +90,9 @@ export function discoverDevices(devices: unknown[]) {
     if (!device || typeof device !== 'object') continue;
     const d = device as Record<string, unknown>;
     if (typeof d.deviceId !== 'string' || typeof d.lan_ip !== 'string') continue;
+    // Discovery retains registrations for one hour. Do not resurrect an identity
+    // that this browser just reset while that stale registration expires.
+    if ((resetDevices.get(d.deviceId) ?? 0) > Date.now()) continue;
     let address: URL;
     try { address = new URL(`http://${d.lan_ip}`); } catch { continue; }
     if (address.username || address.password) continue;
@@ -164,6 +179,7 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
         result = connection ? await connection.request(request) : await requestHttp(light.address, request);
         if (payload.operation === 33) {
           if (!result.factoryResetAccepted) throw new Error('Luxio did not acknowledge the factory reset.');
+          resetDevices.set(deviceKey, Date.now() + 3_600_000);
           for (const peer of lights.filter(item => !item.simulator && item.state.deviceId === deviceKey)) remove(peer);
           return result as Response;
         }
