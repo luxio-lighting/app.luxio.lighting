@@ -67,3 +67,46 @@ test('BLE subscribes before writes, frames chunks of at most 20 bytes, and fails
   device.dispatchEvent(new Event('gattserverdisconnected'));
   await rejected; await connection.close();
 });
+
+test('Setup hands an already selected USB port to the app without another picker and releases an existing connection', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  let pickerCalls = 0, opens = 0, closes = 0;
+  const decoder = new FrameDecoder();
+  let incoming: ReadableStreamDefaultController<Uint8Array>;
+  const port = {
+    readable: undefined as ReadableStream<Uint8Array> | undefined,
+    writable: undefined as WritableStream<Uint8Array> | undefined,
+    open: async () => {
+      opens++;
+      port.readable = new ReadableStream({ start(controller) { incoming = controller; } });
+      port.writable = new WritableStream({ write(bytes) {
+        for (const body of decoder.push(bytes)) {
+          const request = decodeRequest(body);
+          incoming.enqueue(frame(encodeResponse({ id: request.id, error: '', scripts: [], state: {
+            deviceId: 'setup-handoff', activeScriptId: '', lanIp: '', build: 36, mode: 0, on: true, brightness: 180,
+            config: { name: 'New Luxio', stripType: 'WS2805', ledCount: 60, gpio: 16, channel: 100 },
+            color: { red: 0, green: 210, blue: 255, white: 0, warmWhite: 0, coolWhite: 0 },
+          } })));
+        }
+      } });
+    },
+    close: async () => { closes++; },
+  };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { serial: { requestPort: async () => { pickerCalls++; return port; } } } });
+  const { findDevice, remove } = await import('../src/model');
+  const { connections } = await import('../src/transport');
+  try {
+    const light = await findDevice('usb', port as unknown as SerialPort);
+    assert.equal(light.id, 'setup-handoff'); assert.equal(light.transport, 'usb'); assert.equal(light.online, true);
+    const previous = connections.get(light.id);
+    const same = await findDevice('usb', port as unknown as SerialPort);
+    assert.equal(same, light); assert.notEqual(connections.get(light.id), previous);
+    assert.equal(pickerCalls, 0); assert.equal(opens, 2); assert.equal(closes, 1);
+    await connections.get(light.id)?.close(); remove(light);
+    assert.equal(closes, 2);
+  } finally {
+    await connections.get('setup-handoff')?.close();
+    if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor);
+    else Reflect.deleteProperty(globalThis, 'navigator');
+  }
+});

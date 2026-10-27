@@ -7,7 +7,7 @@ npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite. Select a discovered light, connect by IP address under **Add Luxio**, or choose **Add a virtual device** to try the simulator.
+Open the URL printed by Vite. Select a discovered light, use the sidebar **+** to flash an ESP32 or connect by IP address, or choose **Try the Simulator** from the empty sidebar.
 
 ```sh
 npm run check
@@ -35,11 +35,17 @@ The private Sites deployment is at https://luxio-app.emilenijssen.chatgpt.site. 
 
 Discovery immediately lists every device returned by `https://api.luxio.lighting/devices`, even when its HTTP endpoint cannot be reached. Supported browsers then fetch local state. Safari shows Chrome guidance when a directory device is selected. Manual addresses are supported. Local device state refreshes every four seconds while the tab is visible. Requests for each device are serialized; failed mutations are never automatically retried. Library pagination follows the existing firmware protocol.
 
-Use current desktop or Android Chrome and allow local network access to control HTTP devices from an HTTPS deployment. Safari, Firefox, and other browsers may block that connection. The sidebar offers **Connect via Bluetooth** (Web Bluetooth on desktop/Android Chrome) and **Connect via USB** (Web Serial on desktop Chrome). Device pickers require a click; connections stay in memory, and disconnected devices must be selected again. Chrome on iOS uses WebKit and does not provide these capabilities. Native mDNS discovery remains in the iOS app. Configure a light's initial Wi-Fi using the native app or [Luxio Setup](https://setup.luxio.lighting/).
+Use current desktop or Android Chrome and allow local network access to control HTTP devices from an HTTPS deployment. Safari, Firefox, and other browsers may block that connection. The sidebar offers **Connect via Bluetooth** (Web Bluetooth on desktop/Android Chrome) and **Connect via USB** (Web Serial on desktop Chrome). Device pickers require a click; connections stay in memory, and disconnected devices must be selected again. Chrome on iOS uses WebKit and does not provide these capabilities. Native mDNS discovery remains in the iOS app. The sidebar **+** opens the integrated Setup flasher. It detects the ESP32 variant, verifies the firmware manifest, partition layout, image chip IDs, and SHA-256 checksums before writing. After installation it reconnects the selected USB port, adds the light to the sidebar, and opens settings for LED strip and Wi-Fi configuration.
 
-The simulator works without a physical light. Its configuration, active scene, animation parameters, and saved libraries persist in local storage. Data stays in this browser and is not synced to iOS or Studio. Private browsing, clearing site data, or unavailable storage affects persistence. Wi-Fi passwords are never persisted.
+The simulator works without a physical light. Its configuration, active scene, animation parameters, and saved libraries persist in local storage. Simulator data stays in this browser and is shared with the integrated Studio, but is not synced to iOS. Private browsing, clearing site data, or unavailable storage affects persistence. Wi-Fi passwords are never persisted.
 
 Animated device backgrounds run the same vendored Lua runtime used by Luxio's other web tools, in isolated Web Workers. They pause when offscreen, backgrounded, powered off, or Reduce Motion is enabled. Runtime errors or a stalled worker fall back to the preset palette. Previews are illustrative and are not frame-synchronized with hardware.
+
+## Integrated Studio
+
+**Animation → My Animations → Create** opens Studio in a fullscreen overlay. Saved animations also offer **Edit in Studio**. The Monaco editor, Lua worker preview, parameters, file management, and documentation are bundled locally. Studio is a separate Vite HTML entry inside a same-origin frame so its editor styling does not affect the control UI; it is not an external website embed.
+
+A typed bridge delegates requests to the parent app's selected light and serialized transport. Saves appear immediately in My Animations for USB, Bluetooth, HTTP, and the simulator. Workspace drafts persist per light in browser storage. Closing Studio stops any live test first; a failed stop remains visible for retry. Dependencies for the editor and USB flashing are loaded only when needed.
 
 ## Verification
 

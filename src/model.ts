@@ -87,17 +87,19 @@ export function discoverDevices(devices: unknown[]) {
   publish(); return found;
 }
 
-export async function findDevice(kind: 'usb' | 'bluetooth') {
+export async function findDevice(kind: 'usb' | 'bluetooth', port?: SerialPort) {
   // Invoke the picker before the first await to preserve the click's user activation.
   let selected: Promise<SerialPort | BluetoothDevice>;
   if (kind === 'usb') {
     if (!navigator.serial) throw new Error('USB requires Google Chrome on a desktop computer. This browser does not provide Web Serial.');
-    selected = navigator.serial.requestPort();
+    selected = port ? Promise.resolve(port) : navigator.serial.requestPort();
   } else {
     if (!navigator.bluetooth) throw new Error('Bluetooth requires Google Chrome on desktop or Android. This browser does not provide Web Bluetooth; on iPhone, use the Luxio iOS app.');
     selected = navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUUID] }, { namePrefix: 'Luxio' }], optionalServices: [serviceUUID] });
   }
-  const connection = new DeviceConnection(kind, await selected);
+  const device = await selected;
+  for (const existing of connections.values()) if (existing.device === device) await existing.close();
+  const connection = new DeviceConnection(kind, device);
   try {
     await connection.open();
     const response = await connection.request({ id: requestID++, operation: 0 });

@@ -15,7 +15,7 @@ export class DeviceConnection {
   private reading?: Promise<void>;
   private closed = false;
   ondisconnect?: () => void;
-  constructor(public kind: 'usb' | 'bluetooth', private device: SerialPort | BluetoothDevice) {}
+  constructor(public kind: 'usb' | 'bluetooth', public readonly device: SerialPort | BluetoothDevice) {}
 
   async open() {
     if (this.kind === 'usb') {

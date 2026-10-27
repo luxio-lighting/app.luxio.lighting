@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171717">
+  <meta name="description" content="Write Luxio animations in Lua. API reference, runnable examples, strip channels, and testing in Luxio Studio.">
+  <link rel="icon" href="/favicon.ico">
+  <title>Animation documentation · Luxio Studio</title>
+  <style>
+    :root { color-scheme: dark; --luxio-blue: #00D2FF; --luxio-green: #4FFF7F; --luxio-mint: #2EECB6; --luxio-gradient: linear-gradient(45deg, #00D2FF, #4FFF7F); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #141414; color: #e5e5e5; font: 15px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: var(--luxio-blue); text-underline-offset: 4px; }
+    a:hover { color: var(--luxio-mint); }
+    a:focus-visible { outline: 2px solid var(--luxio-blue); outline-offset: 4px; border-radius: 3px; }
+    .skip { position: absolute; left: 16px; top: -60px; padding: 8px 16px; background: #262626; z-index: 2; }
+    .skip:focus { top: 8px; }
+    header { border-bottom: 1px solid #303030; background: #1a1a1a; }
+    .header-inner { max-width: 1180px; margin: auto; padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: #fafafa; text-decoration: none; font-weight: 650; white-space: nowrap; }
+    .brand img { width: 32px; height: 32px; }
+    .brand span { color: #a3a3a3; font-weight: 400; }
+    .back { border: 1px solid #404040; border-radius: 6px; padding: 5px 12px; color: #e5e5e5; font-size: 13px; text-decoration: none; white-space: nowrap; }
+    .back:hover { background: #262626; color: #fff; }
+    .layout { max-width: 1180px; margin: auto; padding: 48px 28px 80px; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 64px; }
+    nav { position: sticky; top: 32px; align-self: start; display: grid; gap: 4px; font-size: 13px; }
+    nav strong { color: #737373; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 0 12px 10px; }
+    nav a { padding: 5px 12px; color: #a3a3a3; border-radius: 5px; text-decoration: none; }
+    nav a:hover { color: #fafafa; background: #262626; }
+    nav a[aria-current="location"] { color: var(--luxio-mint); background: #2eecb610; box-shadow: inset 2px 0 var(--luxio-mint); }
+    main { min-width: 0; max-width: 790px; }
+    .eyebrow { color: var(--luxio-mint); font-size: 12px; font-weight: 600; margin: 0 0 8px; }
+    h1, h2, h3 { color: #fafafa; line-height: 1.3; letter-spacing: -.025em; }
+    h1 { font-size: clamp(30px, 5vw, 42px); margin: 0 0 16px; }
+    h2 { font-size: 24px; margin: 0 0 20px; }
+    h3 { font-size: 17px; margin: 28px 0 10px; }
+    p { margin: 12px 0; }
+    .intro { color: #a3a3a3; font-size: 17px; max-width: 620px; }
+    section { margin-top: 48px; padding-top: 32px; border-top: 1px solid #303030; scroll-margin-top: 24px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    :not(pre) > code { color: #e5e5e5; background: #262626; padding: 2px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+    pre { background: #1a1a1a; border: 1px solid #303030; border-radius: 8px; padding: 20px; overflow-x: auto; line-height: 1.75; tab-size: 2; }
+    pre .lua-comment { color: #89ad78; }
+    pre .lua-keyword { color: #c586c0; }
+    pre .lua-string { color: #ce9178; }
+    pre .lua-number { color: #b5cea8; }
+    pre .lua-function { color: #dcdcaa; }
+    .note { border-left: 2px solid var(--luxio-mint); padding: 6px 16px; background: #191c1b; color: #d4d4d4; margin-top: 20px; }
+    .table { overflow-x: auto; border: 1px solid #303030; border-radius: 8px; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th { color: #fafafa; font-weight: 600; background: #1a1a1a; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid #303030; vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    li { padding-left: 4px; margin: 8px 0; }
+    ul, ol { padding-left: 20px; }
+    .muted { color: #a3a3a3; }
+    footer { margin-top: 48px; font-size: 12px; color: #737373; }
+    @media (max-width: 760px) {
+      .header-inner { padding: 14px 20px; }
+      .layout { grid-template-columns: minmax(0, 1fr); padding: 28px 20px 56px; gap: 28px; }
+      nav { position: static; display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #303030; padding-bottom: 20px; }
+      nav strong { display: none; }
+      nav a { padding: 4px 8px; }
+      pre { padding: 14px; }
+      section { margin-top: 32px; }
+    }
+    @media (max-width: 380px) { .brand span { display: none; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header><div class="header-inner">
+    <a class="brand" href="/"><img src="/luxio-jellyfish.png" alt="" width="32" height="32">Luxio <span>Studio</span></a>
+    <a class="back" href="/">Open Studio ↗</a>
+  </div></header>
+  <div class="layout">
+    <nav aria-label="Documentation sections">
+      <strong>Documentation</strong>
+      <a href="#quick-start">Quick start</a>
+      <a href="#lifecycle">Lifecycle</a>
+      <a href="#api">Animation API</a>
+      <a href="#preview">Preview</a>
+      <a href="#parameters">Parameters</a>
+      <a href="#channels">Strip channels</a>
+      <a href="#examples">Examples</a>
+      <a href="#workflow">Test &amp; save</a>
+      <a href="#limits">Limits &amp; troubleshooting</a>
+    </nav>
+    <main id="content">
+      <p class="eyebrow">LUXIO STUDIO / DOCUMENTATION</p>
+      <h1>Write an animation.</h1>
+      <p class="intro">Use Lua to draw a frame on your strip. Luxio calls your animation repeatedly; you decide how the colors change over time.</p>
+      <section id="quick-start">
+        <h2>Quick start</h2>
+        <ol>
+          <li>In Studio, choose <strong>Simulator</strong> and add an animation with <strong>+</strong>.</li>
+          <li>Paste this example into the editor and select <strong>Test</strong>.</li>
+          <li>To use the real strip, copy your code, choose your device, add an animation with <strong>+</strong>, and paste it. Select <strong>Test</strong> to preview it, then <strong>Save</strong> to keep it on the device.</li>
+        </ol>
+        <pre><code class="language-lua" data-example="breathe"><span class="lua-comment">-- @preview 00d2ff,4fff7f</span>
+<span class="lua-comment">-- @parameter Flicker,Checkbox,true</span>
+<span class="lua-comment">-- @parameter Speed,Slider,50,0,100</span>
+
+<span class="lua-comment">-- A cyan glow, with live speed and flicker controls.</span>
+<span class="lua-keyword">local</span> count = <span class="lua-number">0</span>
+
+<span class="lua-keyword">function</span> <span class="lua-function">setup</span>()
+  count = <span class="lua-function">luxio_get_pixel_count</span>()
+<span class="lua-keyword">end</span>
+
+<span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-keyword">local</span> seconds = <span class="lua-function">luxio_millis</span>() / <span class="lua-number">1000</span>
+  <span class="lua-keyword">local</span> speed = <span class="lua-function">luxio_get_parameter</span>(<span class="lua-string">"Speed"</span>) / <span class="lua-number">50</span>
+  <span class="lua-keyword">local</span> level = <span class="lua-number">1</span>
+  <span class="lua-keyword">if</span> <span class="lua-function">luxio_get_parameter</span>(<span class="lua-string">"Flicker"</span>) <span class="lua-keyword">then</span>
+    level = (math.<span class="lua-function">sin</span>(seconds * speed * <span class="lua-number">2</span> * math.pi / <span class="lua-number">4</span>) + <span class="lua-number">1</span>) / <span class="lua-number">2</span>
+  <span class="lua-keyword">end</span>
+  <span class="lua-keyword">local</span> green = math.<span class="lua-function">floor</span>(<span class="lua-number">210</span> * level)
+  <span class="lua-keyword">local</span> blue = math.<span class="lua-function">floor</span>(<span class="lua-number">255</span> * level)
+
+  <span class="lua-keyword">for</span> i = <span class="lua-number">0</span>, count - <span class="lua-number">1</span> <span class="lua-keyword">do</span>
+    <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">0</span>, green, blue)
+  <span class="lua-keyword">end</span>
+<span class="lua-keyword">end</span></code></pre>
+        <p class="muted">This example works on all supported strip types, including a single addressable LED/controller.</p>
+      </section>
+      <section id="lifecycle">
+        <h2>Lifecycle</h2>
+        <p><code>setup()</code> is optional and runs once each time the animation starts. Use it to initialize variables or draw an initial frame. <code>loop()</code> is required and runs roughly every 33 ms, about 30 frames per second.</p>
+        <p>Write one frame, then return. Luxio schedules the next call. Use elapsed time for motion instead of counting frames or waiting in a loop.</p>
+        <p>Variables survive between calls and reset when the animation restarts. Pixels begin black and retain their last values until you overwrite them. To move a light, redraw the background too.</p>
+      </section>
+      <section id="api">
+        <h2>Animation API</h2>
+        <h3><code>luxio_get_pixel_count()</code></h3>
+        <p>Returns the configured number of addressable LEDs/controllers. Indices start at <strong>0</strong> and end at <code>count - 1</code>. One controller may drive a group of physical LEDs.</p>
+        <h3><code>luxio_get_color_type()</code></h3>
+        <p>Returns <code>"RGB"</code>, <code>"RGBW"</code>, or <code>"RGBCCT"</code> for the configured strip. Use it to choose which channels to write. Available at the top level, in <code>setup()</code>, and in <code>loop()</code>, from firmware build 22. It reads the strip configuration; it does not detect the connected hardware.</p>
+        <h3><code>luxio_millis()</code></h3>
+        <p>Returns elapsed time in milliseconds since this animation started. Divide by <code>1000</code> for seconds. It resets on every start.</p>
+        <h3><code>luxio_set_pixel_color(index, red, green, blue, white, warm_white, cool_white)</code></h3>
+        <p>Sets one pixel’s channels. All channel values must be integers from <strong>0 to 255</strong>; omitted channels default to zero. Use <code>math.floor()</code> when calculating values. Unsupported channels must be zero.</p>
+        <pre><code class="language-lua"><span class="lua-comment">-- RGB: cyan at pixel zero.</span>
+<span class="lua-function">luxio_set_pixel_color</span>(<span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">210</span>, <span class="lua-number">255</span>)
+
+<span class="lua-comment">-- RGBW only: the dedicated white channel.</span>
+<span class="lua-function">luxio_set_pixel_color</span>(<span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">255</span>)
+
+<span class="lua-comment">-- RGBCCT only: a mix of warm and cool white.</span>
+<span class="lua-function">luxio_set_pixel_color</span>(<span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">160</span>, <span class="lua-number">95</span>)</code></pre>
+        <h3><code>luxio_fill(red, green, blue, white, warm_white, cool_white)</code></h3>
+        <p>Fills the entire strip in one native call. Channels are integers from 0 to 255; omitted channels are zero. The same strip-channel rules as <code>luxio_set_pixel_color</code> apply. <code>luxio_fill()</code> clears all channels.</p>
+        <pre><code class="language-lua"><span class="lua-function">luxio_fill</span>(<span class="lua-number">0</span>, <span class="lua-number">210</span>, <span class="lua-number">255</span>) <span class="lua-comment">-- Cyan across the strip.</span>
+<span class="lua-function">luxio_fill</span>(<span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">180</span>, <span class="lua-number">75</span>) <span class="lua-comment">-- RGBCCT warm/cool white.</span></code></pre>
+        <h3><code>luxio_fill_range(start, count, red, green, blue, white, warm_white, cool_white)</code></h3>
+        <p>Fills <code>count</code> consecutive pixels beginning at zero-based <code>start</code>. Other pixels remain unchanged. The range must fit entirely inside the strip; it is not clipped. A zero count is allowed, including at <code>start == luxio_get_pixel_count()</code>. Invalid ranges or channels raise an error before any pixel is changed.</p>
+        <pre><code class="language-lua"><span class="lua-function">luxio_fill_range</span>(<span class="lua-number">10</span>, <span class="lua-number">5</span>, <span class="lua-number">255</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>) <span class="lua-comment">-- Pixels 10 through 14, inclusive.</span></code></pre>
+        <h3><code>luxio_fill_hsv(hue, step, saturation, value)</code></h3>
+        <p>Fills an RGB spectrum without a Lua loop. Hue is measured in turns: 0 is red, 1/3 green, 2/3 blue, and 1 wraps back to red. <code>step</code> is the hue increment per pixel; it defaults to 0 for a uniform color. Negative hue and step wrap around. Saturation and value default to 1 and must be between 0 and 1. All arguments must be finite numbers.</p>
+        <p>The result replaces all six channels: RGB is calculated from HSV and the white channels are cleared. It works on every strip type, but does not synthesize dedicated white. Value controls this animation's RGB intensity; the device brightness still applies afterward.</p>
+        <pre><code class="language-lua"><span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-comment">-- One full moving rainbow. Keep time small before float division.</span>
+  <span class="lua-keyword">local</span> hue = (<span class="lua-function">luxio_millis</span>() % <span class="lua-number">20000</span>) / <span class="lua-number">20000</span>
+  <span class="lua-function">luxio_fill_hsv</span>(hue, <span class="lua-number">1</span> / <span class="lua-function">luxio_get_pixel_count</span>())
+<span class="lua-keyword">end</span></code></pre>
+        <h3><code>luxio_render_waves(waves, channels)</code></h3>
+        <p>Renders a whole strip by combining sine waves and mapping them to RGB and dedicated white channels. Lua controls the movement and colors; native code performs the pixel calculations. It writes the existing working buffer, with no extra pixel array.</p>
+        <p><code>waves</code> is a list of 1–4 wave tables. Each wave has an optional <code>offset</code> (default 0), optional <code>positive</code> boolean (default false), and up to four sine terms. Each term has <code>phase</code> (radians, default 0), <code>step</code> (radians per pixel, default 0), and <code>amplitude</code> (default 1). At zero-based pixel <code>i</code>, the wave is <code>offset + sum(amplitude * sin(phase + i * step))</code>, clamped to −1…1, or 0…1 when positive is true.</p>
+        <p><code>channels</code> contains up to six tables, in red, green, blue, white, warm-white, cool-white order. Missing channels are cleared. Each channel has an optional <code>offset</code> (default 0), and up to four terms with a one-based <code>wave</code> index, <code>gain</code> (default 255) and integer <code>power</code> (1–16, default 1). The channel is <code>offset + sum(gain * wave ^ power)</code>, clamped to 0…255. Optional <code>multiply</code> selects a one-based wave index to multiply this clamped result by; 0 or omission disables modulation. The result is clamped at zero and rounded down only once, after mixing and modulation.</p>
+        <p>All numbers must be finite. Wave offsets and amplitudes are −4…4; phase and step are −10¹²…10¹²; channel offsets and gains are −1024…1024. Invalid descriptors fail before any pixel changes. An unavailable white channel must be omitted or an empty table with zero offset. The call is bounded to four waves, four terms per wave/channel, and the configured strip length.</p>
+        <pre><code class="language-lua">-- Create these small tables once, outside loop().
+local waves = {{offset = 0.675, {amplitude = 0.325, step = 1 / 8}}}
+local channels = {
+  {{wave = 1, gain = 15}},
+  {{wave = 1, gain = 140}},
+  {{wave = 1, gain = 255}}
+}
+function loop()
+  local phase = luxio_millis() / 1800
+  waves[1][1].phase = phase
+  luxio_render_waves(waves, channels)
+end</code></pre>
+        <p>For a warm-white candle on RGBCCT, use <code>channels = {[5] = {{wave = 1}}}</code>. For layered neon bands, use positive waves and <code>power = 6</code> to narrow the peaks; use another wave as <code>multiply</code> for shimmer. Fireplace and Cyberpunk in the preset picker show these techniques. Keep tables outside <code>loop()</code> and change only their phase, gain or other controls per frame.</p>
+        <p>Bulk methods write directly into the existing animation working buffer on the ESP32; they do not allocate a second pixel array. The completed frame is displayed when <code>loop()</code> returns, just like per-pixel writes. Prefer a fill for uniform areas and read parameters once per frame. Christmas fills a steady background before writing active twinkles; Knight Rider clears the frame before drawing only its visible head and trail. Effects with different calculations at each pixel can continue using <code>luxio_set_pixel_color</code>.</p>
+        <p>The current animation API and presets require firmware build 36 or newer.</p>
+        <h3><code>luxio_get_parameter(name)</code></h3>
+        <p>Returns the current Boolean or Number value of a declared parameter. Names are case-sensitive. Read it inside <code>loop()</code> to pick up live changes. Reading it in <code>setup()</code> captures only the starting value. An unknown name raises an error.</p>
+        <p>Luxio displays the frame automatically. There is no <code>show()</code> or delay call. Channel intensity is separate from device brightness, which Luxio applies to the final output.</p>
+      </section>
+      <section id="preview">
+        <h2>Animation preview</h2>
+        <pre><code class="language-lua"><span class="lua-comment">-- @preview ff460c,d21400,ffc823</span>
+<span class="lua-comment">-- @parameter Speed,Slider,50,0,100</span>
+<span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-comment">-- Render the animation here.</span>
+<span class="lua-keyword">end</span></code></pre>
+        <p>Put one optional <code>@preview</code> in the leading Lua comments. Supply two to eight comma-separated RGB hex colors, in gradient order. Six digits are required; an optional <code>#</code>, mixed case and whitespace are accepted. Duplicate, malformed or misplaced previews are rejected.</p>
+        <p>This palette is a visual hint for the iOS device header, home card and saved-animation swatch. It does not set LED colors or change playback. Missing previews use a neutral background. Firmware derives the palette from source on save or play; <code>Script.preview</code> is included in listings and <code>State.animationPreview</code> describes the playing animation, including RAM previews. Requires firmware build 19.</p>
+      </section>
+      <section id="parameters">
+        <h2>Parameters</h2>
+        <p>Declare controls in comments at the top of your animation, before any Lua code. Studio shows a checkbox for Checkbox values, a slider for Slider values, and a numeric input for Number values. Mobile clients show native controls while the animation is playing.</p>
+        <pre><code class="language-lua"><span class="lua-comment">-- @parameter Flicker,Checkbox,true</span>
+<span class="lua-comment">-- @parameter Speed,Slider,50,0,100</span>
+<span class="lua-comment">-- @parameter Spacing,Number,8,1,64</span>
+<span class="lua-comment">-- Name,Type,Default,Minimum,Maximum (range for Slider and Number)</span></code></pre>
+        <div class="table"><table>
+          <thead><tr><th scope="col">Type</th><th scope="col">Control</th><th scope="col">Lua value</th></tr></thead>
+          <tbody>
+            <tr><td><code>Slider</code></td><td>A slider between minimum and maximum</td><td>Number</td></tr>
+            <tr><td><code>Number</code></td><td>A numeric input with minimum and maximum</td><td>Number</td></tr>
+            <tr><td><code>Checkbox</code></td><td>A checkbox or native on/off control</td><td><code>true</code> or <code>false</code></td></tr>
+          </tbody>
+        </table></div>
+        <p>Numbers may be decimal or negative. Minimum and maximum are separate comma-separated values; the default must be within the range. The minimum must be lower than the maximum. Values must be finite and between −1,000,000,000 and 1,000,000,000.</p>
+        <p>Use up to 16 unique, case-sensitive names, each 1–32 ASCII characters. Start with a letter; letters, digits, spaces, and underscores are allowed. Checkbox defaults are <code>true</code> or <code>false</code>. Invalid declarations show an error and cannot be played or saved.</p>
+        <p>Changes apply without restarting the animation or resetting its elapsed time. Live values stay in RAM. <strong>Save</strong> in Studio stores the values with the saved animation. On iOS, tap the sliders icon in the selected animation card to open its settings. Changes are remembered locally on your phone for each light and animation, and reapplied when you select it again. <strong>Reset to Defaults</strong> restores the values declared in the comments. On Android, <strong>Save parameters</strong> stores values with the saved animation.</p>
+        <p>Editing declarations during a test requires stopping and testing again. Slider and Checkbox declarations require firmware build 21 or newer. Number uses a numeric input; the old Boolean spelling remains supported as an alias for Checkbox. In Studio, numeric inputs apply when you press Enter or leave the field. On iOS, press Done; on Android, press Done or the Apply button.</p>
+        <pre><code class="language-shell">luxio set-animation glow.lua --parameters '{"Speed":75,"Flicker":false}'
+luxio set-parameters '{"Speed":25}'
+luxio set-parameters '{"Speed":25}' --save</code></pre>
+        <p class="muted"><code>--save</code> requires a saved animation to be running. It preserves the values without restarting playback.</p>
+      </section>
+      <section id="channels">
+        <h2>Strip channels</h2>
+        <div class="table"><table>
+          <thead><tr><th scope="col">Configured strip</th><th scope="col">Available channels</th><th scope="col">White behavior</th></tr></thead>
+          <tbody>
+            <tr><td>WS2812 · RGB</td><td>Red, green, blue</td><td>No dedicated white channel</td></tr>
+            <tr><td>WS2814 / SK6812 · RGBW</td><td>Red, green, blue, white</td><td>One white channel</td></tr>
+            <tr><td>WS2805 · RGBCCT</td><td>Red, green, blue, warm white, cool white</td><td>Mix warm and cool; leave <code>white</code> at zero</td></tr>
+          </tbody>
+        </table></div>
+        <p>RGB-only animations work on all three types. Use <code>luxio_get_color_type()</code> to adapt white-channel animations to the configured strip. Choose the matching simulator setting to preview each output type.</p>
+        <p>Saved colors, gradients, and animations are separate libraries. Use a native gradient for a still blend; clients offer gradients only when the device has more than one LED/controller.</p>
+      </section>
+      <section id="examples">
+        <h2>More examples</h2>
+        <h3>Adapt to the strip's white channels</h3>
+        <p>This example uses the dedicated warm-white channel on RGBCCT strips, the dedicated white channel on RGBW strips, and a warm RGB mix otherwise. Guarding the function call also keeps it usable on older firmware.</p>
+        <pre><code class="language-lua" data-example="adaptive-white"><span class="lua-comment">-- Use RGB when running on firmware older than build 22.</span>
+<span class="lua-keyword">local</span> color_type = luxio_get_color_type <span class="lua-keyword">and</span> <span class="lua-function">luxio_get_color_type</span>() <span class="lua-keyword">or</span> <span class="lua-string">"RGB"</span>
+
+<span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-keyword">for</span> i = <span class="lua-number">0</span>, <span class="lua-function">luxio_get_pixel_count</span>() - <span class="lua-number">1</span> <span class="lua-keyword">do</span>
+    <span class="lua-keyword">if</span> color_type == <span class="lua-string">"RGBCCT"</span> <span class="lua-keyword">then</span>
+      <span class="lua-comment">-- Dedicated warm-white channel; cool white stays off.</span>
+      <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">255</span>, <span class="lua-number">0</span>)
+    <span class="lua-keyword">elseif</span> color_type == <span class="lua-string">"RGBW"</span> <span class="lua-keyword">then</span>
+      <span class="lua-comment">-- The dedicated white channel's color depends on the strip.</span>
+      <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">255</span>)
+    <span class="lua-keyword">else</span>
+      <span class="lua-comment">-- Approximate warm white using red, green, and blue.</span>
+      <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">255</span>, <span class="lua-number">190</span>, <span class="lua-number">105</span>)
+    <span class="lua-keyword">end</span>
+  <span class="lua-keyword">end</span>
+<span class="lua-keyword">end</span></code></pre>
+
+        <h3>Traveling color wave</h3>
+        <p>Three offset sine waves spread color along the strip. Changing <code>4000</code> changes the cycle duration in milliseconds.</p>
+        <pre><code class="language-lua" data-example="wave"><span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-keyword">local</span> count = <span class="lua-function">luxio_get_pixel_count</span>()
+  <span class="lua-keyword">local</span> time = <span class="lua-function">luxio_millis</span>() / <span class="lua-number">4000</span>
+
+  <span class="lua-keyword">for</span> i = <span class="lua-number">0</span>, count - <span class="lua-number">1</span> <span class="lua-keyword">do</span>
+    <span class="lua-keyword">local</span> phase = (i / count - time) * <span class="lua-number">2</span> * math.pi
+    <span class="lua-keyword">local</span> red = math.<span class="lua-function">floor</span>(<span class="lua-number">127.5</span> + <span class="lua-number">127.5</span> * math.<span class="lua-function">sin</span>(phase))
+    <span class="lua-keyword">local</span> green = math.<span class="lua-function">floor</span>(<span class="lua-number">127.5</span> + <span class="lua-number">127.5</span> * math.<span class="lua-function">sin</span>(phase + <span class="lua-number">2</span> * math.pi / <span class="lua-number">3</span>))
+    <span class="lua-keyword">local</span> blue = math.<span class="lua-function">floor</span>(<span class="lua-number">127.5</span> + <span class="lua-number">127.5</span> * math.<span class="lua-function">sin</span>(phase + <span class="lua-number">4</span> * math.pi / <span class="lua-number">3</span>))
+    <span class="lua-function">luxio_set_pixel_color</span>(i, red, green, blue)
+  <span class="lua-keyword">end</span>
+<span class="lua-keyword">end</span></code></pre>
+        <h3>Moving dot</h3>
+        <p>Moves one mint-colored pixel every 100 ms. Every other pixel is cleared on each frame.</p>
+        <pre><code class="language-lua" data-example="dot"><span class="lua-keyword">function</span> <span class="lua-function">loop</span>()
+  <span class="lua-keyword">local</span> count = <span class="lua-function">luxio_get_pixel_count</span>()
+  <span class="lua-keyword">local</span> position = math.<span class="lua-function">floor</span>(<span class="lua-function">luxio_millis</span>() / <span class="lua-number">100</span>) % count
+
+  <span class="lua-keyword">for</span> i = <span class="lua-number">0</span>, count - <span class="lua-number">1</span> <span class="lua-keyword">do</span>
+    <span class="lua-keyword">if</span> i == position <span class="lua-keyword">then</span>
+      <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">46</span>, <span class="lua-number">236</span>, <span class="lua-number">182</span>)
+    <span class="lua-keyword">else</span>
+      <span class="lua-function">luxio_set_pixel_color</span>(i, <span class="lua-number">0</span>, <span class="lua-number">0</span>, <span class="lua-number">0</span>)
+    <span class="lua-keyword">end</span>
+  <span class="lua-keyword">end</span>
+<span class="lua-keyword">end</span></code></pre>
+      </section>
+      <section id="workflow">
+        <h2>Test &amp; save</h2>
+        <p><strong>Test</strong> runs in the simulator and on the selected device. Device previews run from RAM and do not save a library item. Starting an animation turns the strip on and keeps its current brightness. <strong>Stop</strong> ends the preview; it does not turn off the light.</p>
+        <p><strong>Save</strong> writes to the selected device’s animation library. With Simulator selected, it saves in this browser. Saving does not start playback. Use <strong>Download .lua</strong> in the animation menu to keep a file copy.</p>
+        <p>The sidebar shows the selected device’s saved animations. Bundled examples and browser drafts belong to Simulator. To move one to a device, copy its code, select the device, create an animation, and paste the code before saving.</p>
+        <p>The simulator displays full brightness. Your device uses its own brightness and actual LED channels, so colors can look different. Test with the matching strip type and LED/controller count, then check the physical strip.</p>
+        <div class="table"><table>
+          <thead><tr><th scope="col">Action</th><th scope="col">Shortcut</th></tr></thead>
+          <tbody><tr><td>Save</td><td>Cmd/Ctrl + S</td></tr><tr><td>Start or stop Test</td><td>Cmd/Ctrl + Enter</td></tr></tbody>
+        </table></div>
+        <h3>From the CLI</h3>
+        <pre><code class="language-shell">luxio --device 192.168.1.231 set-animation glow.lua
+luxio --device 192.168.1.231 save-animation glow.lua --name Glow
+luxio --device 192.168.1.231 animations</code></pre>
+        <p class="muted">Replace the IP with your device’s address. <code>set-animation</code> plays from RAM; <code>save-animation</code> stores it for later.</p>
+      </section>
+      <section id="limits">
+        <h2>Limits &amp; troubleshooting</h2>
+        <ul>
+          <li><strong>Source:</strong> up to 16 KiB (16,384 UTF-8 bytes). Saved names are limited to 63 UTF-8 bytes.</li>
+          <li><strong>Memory:</strong> the device’s Lua engine has a 128 KiB allocation budget, including runtime overhead. Reuse variables and avoid growing tables every frame.</li>
+          <li><strong>Execution:</strong> firmware build 35 runs initialization, <code>setup()</code> and <code>loop()</code> in approximately 4 ms CPU slices. Longer frames finish at a lower frame rate. Each call is limited to 1,000,000 instructions and 500 ms CPU time; only completed frames reach the LEDs. Read <code>luxio_millis()</code> once per frame for a consistent timestamp. Older firmware has tighter limits. Never use waiting loops such as <code>while true do</code>.</li>
+          <li><strong>Libraries:</strong> base Lua functions plus <code>math</code>, <code>table</code>, <code>string</code>, and <code>utf8</code> are available on the device. File, network, OS, module loading, debug, and coroutine APIs are unavailable. Do not rely on <code>print</code>, <code>load</code>, <code>dofile</code>, <code>loadfile</code>, or <code>collectgarbage</code>.</li>
+        </ul>
+        <div class="note">The browser simulator is useful for previewing behavior, but it does not reproduce the ESP32’s memory and timing limits. Always test on the device before saving your final animation.</div>
+        <div class="table"><table>
+          <thead><tr><th scope="col">Error</th><th scope="col">What to check</th></tr></thead>
+          <tbody>
+            <tr><td>Define a loop() function</td><td>Add a global <code>function loop() … end</code>, even if it is empty.</td></tr>
+            <tr><td>Pixel index out of range</td><td>Use <code>0</code> through <code>luxio_get_pixel_count() - 1</code>.</td></tr>
+            <tr><td>Channel unavailable</td><td>Use only the channels supported by the configured strip type.</td></tr>
+            <tr><td>Invalid channel value</td><td>Round values to integers and keep them within 0–255.</td></tr>
+            <tr><td>Instruction/time budget exceeded</td><td>Remove waiting loops, reduce per-frame work, and calculate motion from elapsed time.</td></tr>
+          </tbody>
+        </table></div>
+        <p>A runtime error stops the animation; the device returns to its current solid color.</p>
+      </section>
+      <footer>Luxio Studio · Animation API</footer>
+    </main>
+  </div>
+  <script>
+    const links = [...document.querySelectorAll('nav a[href^="#"]')];
+    const sections = links.map(link => document.getElementById(link.hash.slice(1)));
+    let pending = false;
+
+    function updateCurrentSection() {
+      pending = false;
+      let current = 0;
+      for (let index = 0; index < sections.length; index++) {
+        if (sections[index].getBoundingClientRect().top <= 96) current = index;
+      }
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+        current = sections.length - 1;
+      }
+      links.forEach((link, index) => {
+        if (index === current) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!pending) {
+        pending = true;
+        requestAnimationFrame(updateCurrentSection);
+      }
+    }, { passive: true });
+    window.addEventListener('resize', updateCurrentSection);
+    window.addEventListener('pageshow', updateCurrentSection);
+    window.addEventListener('hashchange', updateCurrentSection);
+    updateCurrentSection();
+  </script>
+</body>
+</html>

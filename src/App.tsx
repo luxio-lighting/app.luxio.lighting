@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Bluetooth, ChevronDown, Usb, Lightbulb, LightbulbOff, LoaderCircle, Monitor, MoreHorizontal, Plus, RefreshCw, Search, SlidersHorizontal, Square, Wifi, X } from 'lucide-react';
-import { addSimulator, connect, discoverDevices, findDevice, needsChrome, emptyColor, lights, loadLibrary, modes, paletteCSS, plural, refresh, send, snapshot, storageError, subscribe, type Item, type Light } from './model';
+import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Bluetooth, Usb, LightbulbOff, LoaderCircle, Monitor, MoreHorizontal, Plus, RefreshCw, Search, SlidersHorizontal, Square, Wifi, X } from 'lucide-react';
+import { addSimulator, discoverDevices, findDevice, needsChrome, emptyColor, lights, loadLibrary, modes, paletteCSS, plural, refresh, send, snapshot, storageError, subscribe, type Item, type Light } from './model';
 import { Backdrop, Brightness, ColorWheel, Modal, Power } from './Controls';
 import { Settings } from './Settings';
+import { Flasher } from './Flasher';
+import { Studio } from './Studio';
 import { parseParameters } from '../shared/protocol/src/parameters';
 import type { Color, Request } from '../shared/protocol/src/index';
 import colorPresets from './colors.json';
@@ -73,7 +75,7 @@ export default function App() {
   }
 
   return <div className={`app ${selectedLight ? 'has-selection' : ''}`}>
-    <header className="app-toolbar"><details className="app-switcher" onKeyDown={event => { if (event.key === 'Escape') event.currentTarget.open = false; }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false; }}><summary className="brand" aria-label="Switch Luxio app"><img className="brand-mark" src="/luxio-jellyfish.png" alt="" width={32} height={32} /><strong>Luxio <span>App</span></strong><ChevronDown size={14} /></summary><nav aria-label="Luxio apps"><a href="https://luxio-app.emilenijssen.chatgpt.site/" aria-current="page">Luxio App</a><a href="https://studio.luxio.lighting/">Luxio Studio</a><a href="https://setup.luxio.lighting/">Luxio Setup</a></nav></details></header>
+    <header className="app-toolbar"><div className="brand"><img className="brand-mark" src="/luxio-jellyfish.png" alt="" width={32} height={32} /><strong>Luxio</strong></div></header>
     <aside className="sidebar">
       <div className="row-actions sidebar-actions"><button className="icon-button refresh-button" aria-label="Refresh devices" disabled={discovering} onClick={() => void discover(true)}><RefreshCw size={18} className={discovering ? 'spinning' : ''} /></button><button className="icon-button" aria-label="Add Device" onClick={() => setAdd(true)}><Plus size={23} /></button></div>
       <div className="device-list">
@@ -82,7 +84,7 @@ export default function App() {
           <div className="device-brightness" inert={!light.state.on || light.stateKnown === false}><div><Brightness label={`${light.state.config.name} brightness`} value={light.state.brightness} change={brightness => void action(light, { operation: 2, brightness })} disabled={!light.online || !light.state.on} /></div></div>
           {!light.online && !needsChrome(light) && <span className="offline-label">Offline</span>}</div>
         </article>)}
-        {!devices.length && <div className="empty-devices"><span className="empty-icon"><LightbulbOff size={30} /></span><h2>No Luxio Devices Found</h2><p>Connect Luxio to the same Wi-Fi network to get started.</p><button className="secondary-button" onClick={() => setAdd(true)}><Plus size={17} /> Add Luxio</button><button className="text-button simulator-link" onClick={() => open(addSimulator())}>Try the Simulator</button></div>}
+        {!devices.length && <div className="empty-devices"><span className="empty-icon"><LightbulbOff size={30} /></span><h2>No Luxio Devices Found</h2><p>Turn your ESP32 into a Luxio light.</p><button className="primary-button" onClick={() => setAdd(true)}>Flash my ESP32</button><button className="text-button simulator-link" onClick={() => open(addSimulator())}>Try the Simulator</button></div>}
       </div>
       <footer className="sidebar-footer"><button className="secondary-button" disabled={finding} onClick={() => void find('bluetooth')}><Bluetooth size={17} /> Connect via Bluetooth</button><button className="secondary-button" disabled={finding} onClick={() => void find('usb')}><Usb size={17} /> Connect via USB</button></footer>
     </aside>
@@ -92,22 +94,9 @@ export default function App() {
         {settings && <Settings light={selectedLight} close={() => setSettings(false)} removed={() => { setSettings(false); setSelected(''); history.replaceState({}, '', location.pathname); }} notice={setNotice} />}
       </> : <div className="welcome"><img src="/luxio-jellyfish.png" width={80} height={80} alt="" /><p>Select a Luxio</p></div>}
     </main>
-    {add && <AddLuxio close={() => setAdd(false)} added={light => { setAdd(false); open(light); }} />}
+    {add && <Flasher close={() => setAdd(false)} added={(light, configure) => { setAdd(false); open(light); if (configure) setSettings(true); }} />}
     {(notice || storageError) && createPortal(<div className="toast" role="alert"><span>{notice || storageError}</span><button className="icon-button" aria-label="Dismiss notification" onClick={() => setNotice('')}><X size={18} /></button></div>, toastTarget)}
   </div>;
-}
-
-function AddLuxio({ close, added }: { close: () => void; added: (light: Light) => void }) {
-  const [address, setAddress] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  return <Modal title="Add Luxio" close={() => { if (!busy) close(); }}><div className="sheet-body">
-    <div className="add-guide"><Lightbulb size={42} /><h3>Create your own Luxio</h3><p>Turn an ESP32 and an LED strip into your own smart light. Our guide will help you get started.</p><a href="https://luxio.lighting/" target="_blank" rel="noreferrer" className="primary-button">View the Guide <ArrowUpRight size={17} /></a></div>
-    <form onSubmit={async event => { event.preventDefault(); setBusy(true); setError(''); try { added(await connect(address)); } catch (error) { setError(`Couldn’t connect. Check the address, network, and local network permission. ${error instanceof Error ? error.message : ''}`); } finally { setBusy(false); } }}>
-      <label className="field-label" htmlFor="device-address">CONNECT BY IP ADDRESS</label><div className="group"><input id="device-address" autoComplete="off" spellCheck={false} placeholder="192.168.1.42" value={address} onChange={event => setAddress(event.target.value)} disabled={busy} required /><button className="link-row" disabled={!address.trim() || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : <>Connect <ChevronRight size={18} /></>}</button></div>
-      <p className="field-note">Connect to the same Wi-Fi network. Use desktop or Android Chrome and allow local network access when prompted.</p>{error && <p role="alert" className="error">{error}</p>}
-    </form><button className="text-button simulator-link" disabled={busy} onClick={() => added(addSimulator())}>Add a virtual device</button>
-  </div></Modal>;
 }
 
 function Control({ light, back, settings, notice }: { light: Light; back: () => void; settings: () => void; notice: (value: string) => void }) {
@@ -122,6 +111,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
   const [menu, setMenu] = useState<Item | null>(null);
   const [deleting, setDeleting] = useState<Item | null>(null);
   const [parameters, setParameters] = useState(false);
+  const [studio, setStudio] = useState<{ item?: Item } | null>(null);
   const [draftColors, setDraftColors] = useState<Color[] | null>(null);
   const queuedColors = useRef<Color[] | null>(null);
   const sendingColors = useRef(false);
@@ -212,14 +202,16 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
         <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" disabled={libraryLoading} aria-disabled={libraryLoading || busy} onClick={() => { if (busy || libraryLoading) return; setLibraryLoading(true); void loadLibrary(light).catch(error => notice(String(error))).finally(() => setLibraryLoading(false)); }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
         {saved.length > 0 && <label className="search-field"><Search size={16} /><input placeholder={`Search my ${plural[mode].toLowerCase()}`} aria-label={`Search my ${plural[mode].toLowerCase()}`} value={search} onChange={event => setSearch(event.target.value)} />{search && <button className="icon-button" aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</label>}
         <div className="preset-grid saved-grid">{saved.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `saved:${item.id}`} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors) }}>{applying === `saved:${item.id}` && <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} />}</span><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && <div className="animation-actions"><button aria-label={`Stop ${item.name}`} aria-disabled={busy} onClick={() => { if (!busy) void send(light, { operation: 11 }).catch(error => notice(String(error))); }}><Square size={13} /></button>{Boolean(state.parameters?.length) && <button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}</div>}</div>)}
+          {mode === 2 && !search && <button className="preset-card save-card" disabled={!light.online || busy} onClick={() => setStudio({})}><span className="swatch"><Plus size={24} /></span><span>Create</span></button>}
           {mode !== 2 && !search && <button className="preset-card save-card" disabled={!light.online} aria-disabled={busy || !light.online} onClick={() => { if (busy) return; setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}
         </div>
         {search && !saved.some(item => item.name.toLowerCase().includes(search.toLowerCase())) && <p className="empty-library">No matching {plural[mode].toLowerCase()}.</p>}
 
       </section>
     </div>
+    {studio && <Studio light={light} item={studio.item} close={() => setStudio(null)} notice={notice} />}
     {naming && <Modal title={`${naming.rename ? 'Rename' : 'Save'} ${modes[naming.item.mode]}`} close={() => { if (!busy) setNaming(null); }}><form className="sheet-body" onSubmit={event => { event.preventDefault(); void save(); }}><label className="field-label" htmlFor="preset-name">NAME</label><input autoFocus id="preset-name" placeholder={`My ${modes[naming.item.mode].toLowerCase()}`} maxLength={63} required value={name} onChange={event => setName(event.target.value)} /><p className="field-note">Saved {light.simulator ? 'in this browser with your simulator' : 'on your Luxio device'}.</p><button className="primary-button full" disabled={busy || !name.trim()}>{busy ? 'Saving…' : 'Save'}</button></form></Modal>}
-    {menu && <Modal title={menu.name} close={() => setMenu(null)}><div className="sheet-body menu-actions">{saved.some(item => item.id === menu.id) ? <><button className="link-row" onClick={() => { setNaming({ item: menu, rename: true }); setName(menu.name); setMenu(null); }}>Rename <ChevronRight size={16} /></button><button className="link-row danger" onClick={() => { setDeleting(menu); setMenu(null); }}>Delete <ChevronRight size={16} /></button></> : <button className="link-row" onClick={() => { setNaming({ item: { ...menu, id: crypto.randomUUID() } }); setName(menu.name); setMenu(null); }}>Save to {light.simulator ? 'simulator' : 'device'} <Plus size={17} /></button>}{mode === 2 && state.mode === 2 && Boolean(state.parameters?.length) && (state.scriptName === `Luxio · ${menu.name}` || state.activeScriptId === menu.id) && <button className="link-row" onClick={() => { setMenu(null); setParameters(true); }}>Animation settings <SlidersHorizontal size={16} /></button>}</div></Modal>}
+    {menu && <Modal title={menu.name} close={() => setMenu(null)}><div className="sheet-body menu-actions">{menu.mode === 2 && saved.some(item => item.id === menu.id) && <button className="link-row" onClick={() => { setStudio({ item: menu }); setMenu(null); }}>Edit in Studio <ChevronRight size={16} /></button>}{saved.some(item => item.id === menu.id) ? <><button className="link-row" onClick={() => { setNaming({ item: menu, rename: true }); setName(menu.name); setMenu(null); }}>Rename <ChevronRight size={16} /></button><button className="link-row danger" onClick={() => { setDeleting(menu); setMenu(null); }}>Delete <ChevronRight size={16} /></button></> : <button className="link-row" onClick={() => { setNaming({ item: { ...menu, id: crypto.randomUUID() } }); setName(menu.name); setMenu(null); }}>Save to {light.simulator ? 'simulator' : 'device'} <Plus size={17} /></button>}{mode === 2 && state.mode === 2 && Boolean(state.parameters?.length) && (state.scriptName === `Luxio · ${menu.name}` || state.activeScriptId === menu.id) && <button className="link-row" onClick={() => { setMenu(null); setParameters(true); }}>Animation settings <SlidersHorizontal size={16} /></button>}</div></Modal>}
     {deleting && <Modal title={`Delete ${deleting.name}?`} close={() => setDeleting(null)}><div className="sheet-body"><p>This removes the saved {modes[deleting.mode].toLowerCase()} from {light.simulator ? 'your simulator' : 'this light'}.</p><button className="danger-button full" disabled={busy} onClick={async () => { setBusy(true); try { await send(light, { operation: [29, 22, 9][deleting.mode], colorId: deleting.id, gradientId: deleting.id, scriptId: deleting.id }); await loadLibrary(light); setDeleting(null); } catch (error) { notice(String(error)); } finally { setBusy(false); } }}>Delete</button></div></Modal>}
     {parameters && <Modal title={state.scriptName?.replace(/^Luxio · /, '') || 'Animation settings'} close={() => setParameters(false)}><div className="sheet-body parameter-controls">{(state.parameters ?? []).map(parameter => <label key={parameter.name} className={parameter.boolean || parameter.numberInput ? 'setting-row' : 'parameter-row'}><span>{parameter.name}</span>{parameter.boolean ? <input type="checkbox" checked={Boolean(parameter.value)} onChange={event => void updateParameter(parameter.name, event.target.checked ? 1 : 0)} /> : parameter.numberInput ? <input aria-label={parameter.name} type="number" min={parameter.minimum} max={parameter.maximum} defaultValue={parameter.value} key={`${parameter.name}-${parameter.value}`} onBlur={event => { const value = Number(event.target.value); if (event.target.value && value >= parameter.minimum && value <= parameter.maximum) void updateParameter(parameter.name, value); else notice(`${parameter.name} must be between ${parameter.minimum} and ${parameter.maximum}.`); }} /> : <><output>{parameter.value}</output><input aria-label={parameter.name} type="range" min={parameter.minimum} max={parameter.maximum} value={parameter.value} onChange={event => void updateParameter(parameter.name, Number(event.target.value))} /></>}</label>)}<button className="secondary-button full" onClick={() => void updateParameter('', 0, true)}>Reset to Defaults</button></div></Modal>}
   </div>;
