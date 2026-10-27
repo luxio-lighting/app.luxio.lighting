@@ -81,7 +81,7 @@ export default function App() {
 
   return <div className={`app ${selectedLight ? 'has-selection' : ''}`}>
     <aside className="sidebar">
-      <div className="sidebar-header"><div className="brand"><img className="brand-mark" src="/luxio-jellyfish.png" alt="" width={40} height={40} /><strong>Luxio</strong></div><div className="row-actions sidebar-actions"><button className="icon-button refresh-button" aria-label="Refresh devices" disabled={discovering} onClick={() => void discover(true)}><RefreshCw size={18} className={discovering ? 'spinning' : ''} /></button><button className="icon-button" aria-label="Add Device" onClick={() => setAdd(true)}><Plus size={23} /></button></div></div>
+      <div className="sidebar-header"><div className="brand"><img className="brand-mark" src="/luxio-jellyfish.png" alt="" width={40} height={40} /><strong>Luxio</strong></div><div className="row-actions sidebar-actions"><button className="icon-button refresh-button" aria-label="Refresh devices" aria-busy={discovering} disabled={discovering} onClick={() => void discover(true)}><RefreshCw size={18} className={discovering ? 'spinning' : ''} /></button><button className="icon-button" aria-label="Add Device" onClick={() => setAdd(true)}><Plus size={23} /></button></div></div>
       <div className="device-list">
         {devices.map(light => <article key={light.id} className={`device-card ${light.state.on && light.stateKnown !== false ? 'powered' : ''} ${selected === light.id ? 'selected' : ''} ${light.online ? '' : 'offline'}`}>
           <Backdrop light={light} /><div className="device-card-content"><div className="device-card-row"><button className="device-open" onClick={() => open(light)} aria-label={`Open ${light.state.config.name}${light.simulator ? '' : ` via ${light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}`}`} title={light.simulator ? 'Simulator' : light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}>{light.simulator ? <Monitor size={18} /> : light.transport === 'bluetooth' ? <Bluetooth size={18} /> : light.transport === 'usb' ? <Usb size={18} /> : <Wifi size={18} />}<span>{light.state.config.name}</span></button><Power on={light.state.on} change={on => void action(light, { operation: 15, on })} label={`${light.state.config.name}${light.simulator ? '' : ` ${light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}`} power`} disabled={!light.online} /></div>
@@ -134,7 +134,8 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
 
   useEffect(() => {
     activeRef.current = true; setLibraryLoading(true);
-    void loadLibrary(light).catch(error => notice(`Couldn’t load saved items. ${String(error)}`)).finally(() => { if (activeRef.current) setLibraryLoading(false); });
+    const minimumAnimation = new Promise<void>(resolve => setTimeout(resolve, 500));
+    void loadLibrary(light).catch(error => notice(`Couldn’t load saved items. ${String(error)}`)).finally(async () => { await minimumAnimation; if (activeRef.current) setLibraryLoading(false); });
     void refresh(light).catch(() => {});
     return () => { activeRef.current = false; };
   }, [light.id]);
@@ -210,7 +211,14 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
             {mode === 2 && selected && Boolean(state.parameters?.length) && <button className="preset-options animation-settings" aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button>}
           </div>;
         })}</div>
-        <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" disabled={libraryLoading} aria-disabled={libraryLoading || busy} onClick={() => { if (busy || libraryLoading) return; setLibraryLoading(true); void loadLibrary(light).catch(error => notice(String(error))).finally(() => setLibraryLoading(false)); }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
+        <div className="section-heading saved-heading"><h2>My {plural[mode]}</h2><div className="row-actions"><button className="icon-button" aria-label="Refresh saved items" aria-busy={libraryLoading} disabled={libraryLoading} aria-disabled={libraryLoading || busy} onClick={async () => {
+          if (busy || libraryLoading) return;
+          setLibraryLoading(true);
+          const minimumAnimation = new Promise<void>(resolve => setTimeout(resolve, 500));
+          try { await loadLibrary(light); }
+          catch (error) { notice(String(error)); }
+          finally { await minimumAnimation; if (activeRef.current) setLibraryLoading(false); }
+        }}><RefreshCw size={15} className={libraryLoading ? 'spinning' : ''} /></button></div></div>
         <div className="preset-grid saved-grid">{saved.map(item => <div key={item.id} className={`preset-card ${[state.activeColorId, state.activeGradientId, state.activeScriptId].includes(item.id) ? 'selected' : ''}`}><button className="preset-main" disabled={!light.online} aria-disabled={busy || !light.online} aria-busy={applying === `saved:${item.id}`} aria-label={`Apply saved ${item.name}`} onClick={() => void apply(item, true)} onContextMenu={event => { event.preventDefault(); setMenu(item); }}><span className="swatch" style={{ background: paletteCSS(item.colors, item.mode === 2 ? 90 : 110) }}>{applying === `saved:${item.id}` && <LoaderCircle size={20} className="spinning" role="status" aria-label={`Applying ${item.name}`} />}</span><span>{item.name}</span></button><button className="preset-options" aria-label={`Options for ${item.name}`} onClick={() => setMenu(item)}><MoreHorizontal size={16} /></button>{mode === 2 && state.activeScriptId === item.id && Boolean(state.parameters?.length) && <div className="animation-actions"><button aria-label={`Settings for ${item.name}`} onClick={() => setParameters(true)}><SlidersHorizontal size={15} /></button></div>}</div>)}
           {mode === 2 && <button className="preset-card save-card" disabled={!light.online || busy} onClick={() => setStudio({})}><span className="swatch"><Plus size={24} /></span><span>New</span></button>}
           {mode !== 2 && <button className="preset-card save-card" disabled={!light.online} aria-disabled={busy || !light.online} onClick={() => { if (busy) return; setName(''); setNaming({ item: { id: crypto.randomUUID(), name: '', mode, colors } }); }}><span className="swatch"><Plus size={24} /></span><span>Save</span></button>}

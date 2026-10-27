@@ -48,6 +48,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
   const [qr, setQr] = useState('');
   const [copied, setCopied] = useState(false);
   const [available, setAvailable] = useState(0);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [update, setUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
@@ -177,7 +178,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
           <p className="field-label">RELAY</p><div className="group"><div className="setting-row"><span>Enable Relay</span><Power label="Enable Relay" on={config.relay?.enabled ?? false} disabled={light.state.build < 27} change={enabled => setConfig({ ...config, relay: { gpio: 0, inverted: false, ...config.relay, enabled } })} /></div>{config.relay?.enabled && <><label className="setting-row"><span>Relay GPIO</span><input aria-label="Relay GPIO" type="number" required min={0} max={54} value={config.relay.gpio} onChange={event => setConfig({ ...config, relay: { ...config.relay!, gpio: Number(event.target.value) } })} /></label><div className="setting-row"><span>Invert Relay</span><Power label="Invert Relay" on={config.relay.inverted} change={inverted => setConfig({ ...config, relay: { ...config.relay!, inverted } })} /></div></>}</div><p className="field-note">A relay switches power to the LED strip. Its GPIO must differ from Data Pin.{light.state.build < 27 ? ' Requires firmware build 27 or newer.' : ''}</p>
           <p className="field-label">WI-FI</p><div className="group"><div className="setting-row"><span>Enable Wi-Fi</span><Power label="Enable Wi-Fi" disabled={light.state.build < 34} on={config.wifi?.enabled !== false} change={enabled => setConfig({ ...config, wifi: { enabled } })} /></div>{config.wifi?.enabled !== false && <><div className="setting-row"><span>SSID</span><span className="muted">{light.network?.ssid || '—'}</span></div><div className="setting-row"><span>IP Address</span><span className="muted">{light.state.lanIp || (light.address ? new URL(light.address).hostname : '—')}</span></div><div className="setting-row"><span>Gateway</span><span className="muted">{light.network?.gateway || '—'}</span></div><div className="setting-row"><span>DNS</span><span className="muted">{light.network?.dns?.join(', ') || '—'}</span></div><button type="button" className="link-row" disabled={busy || light.state.build < 24} onClick={() => { setWifi(true); void scanWifi(); }}><span className="settings-action"><Wifi size={16} />Configure Wi-Fi</span></button></>}</div><p className="field-note">Changing Enable Wi-Fi restarts Luxio. Reconnect using Bluetooth or USB to re-enable Wi-Fi.</p>
           {!light.state.matterDisabled && <><p className="field-label">MATTER</p><div className="group"><div className="setting-row"><span>Enable Matter</span><Power label="Enable Matter" disabled={light.state.build < 34} on={config.matter?.enabled !== false} change={enabled => setConfig({ ...config, matter: { enabled } })} /></div>{config.matter?.enabled !== false && config.wifi?.enabled !== false && <button type="button" className="link-row" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const result = await send(light, { operation: 12 }); const { default: QRCode } = await import('qrcode'); setPairing(result.pairingCode); setQr(result.pairingQr ? await QRCode.toDataURL(result.pairingQr, { margin: 2, width: 220 }) : ''); } catch (error) { setError(String(error)); } finally { setBusy(false); } }}><span className="settings-action"><QrCode size={16} />Show Pairing Code</span></button>}{pairing && <div className="pairing">{qr && <img src={qr} alt="Matter pairing QR code" width={220} height={220} />}<div><code>{pairing}</code><button type="button" className="icon-button" aria-label="Copy pairing code" onClick={() => { void navigator.clipboard.writeText(pairing).then(() => setCopied(true)).catch(error => setError(String(error))); }}>{copied ? <Check size={18} /> : <Copy size={18} />}</button></div></div>}</div><p className="field-note">Connect Luxio to a compatible smart home. Changing Enable Matter restarts Luxio; existing pairings are retained.</p></>}
-          <p className="field-label">FIRMWARE</p><div className="group"><div className="setting-row"><span>Build</span><span className="muted">{light.state.build}</span></div><button type="button" className="link-row" disabled={busy} onClick={() => void checkUpdate()}><span className="settings-action"><RefreshCw size={16} />{busy ? 'Checking...' : 'Check for Updates'}</span></button>{available > 0 && <button type="button" className="link-row" onClick={() => { setUpdate(true); setUpdateStatus(''); }}>Build {available} available <ArrowUpRight size={16} /></button>}</div>
+          <p className="field-label">FIRMWARE</p><div className="group"><div className="setting-row"><span>Build</span><span className="muted">{light.state.build}</span></div><button type="button" className="link-row" disabled={busy} aria-busy={checkingUpdate} onClick={() => void checkUpdate()}><span className="settings-action"><RefreshCw size={16} className={checkingUpdate ? 'spinning' : ''} />{checkingUpdate ? 'Checking...' : 'Check for Updates'}</span></button>{available > 0 && <button type="button" className="link-row" onClick={() => { setUpdate(true); setUpdateStatus(''); }}>Build {available} available <ArrowUpRight size={16} /></button>}</div>
         </>}
         {!light.simulator && <><p className="field-label">RESET</p><div className="group"><button type="button" className="link-row danger" disabled={busy || !light.online || !factoryResetSupported} onClick={() => { setError(''); setConfirmReset(true); }}><span className="settings-action"><RotateCcw size={16} />Factory Reset</span></button></div>{!factoryResetSupported && <p className="field-note">Update Luxio’s firmware to enable Factory Reset.</p>}</>}
         {light.simulator && <><p className="field-label">SIMULATOR</p><div className="group"><p className="field-note padded">A virtual Luxio running in this browser. Settings and saved items are kept on this device.</p><button type="button" className="link-row danger" onClick={() => setConfirmRemove(true)}>Remove Simulator</button></div></>}
@@ -193,6 +194,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
     if (scanning) return;
     const generation = ++scanGeneration.current;
     setScanning(true); setScanStatus('Scanning…');
+    const minimumAnimation = new Promise<void>(resolve => setTimeout(resolve, 500));
     try {
       let result = await send(light, { operation: 16 });
       const deadline = Date.now() + 20000;
@@ -211,20 +213,26 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
     } catch (error) {
       if (mounted.current && generation === scanGeneration.current) setScanStatus(`Could not scan networks. Enter another network or refresh. ${error instanceof Error ? error.message : String(error)}`);
     } finally {
+      await minimumAnimation;
       if (mounted.current && generation === scanGeneration.current) setScanning(false);
     }
   }
   async function checkUpdate() {
-    setBusy(true); setError('');
+    if (busy) return;
+    setBusy(true); setCheckingUpdate(true); setError('');
+    const minimumAnimation = new Promise<void>(resolve => setTimeout(resolve, 500));
     try {
       let result = await send(light, { operation: 13 });
       for (let i = 0; result.updateChecking && i < 45 && mounted.current; i++) { await new Promise(resolve => setTimeout(resolve, 1000)); result = await send(light, { operation: 0 }); }
       if (!mounted.current) return;
       if (result.updateError) throw new Error(result.updateError);
       if (result.updateChecking) throw new Error('Update check timed out. Try again.');
+      await minimumAnimation;
+      if (!mounted.current) return;
       setAvailable(result.availableBuild);
       if (result.availableBuild > light.state.build) { setUpdate(true); setUpdateStatus(''); } else notice('Your Luxio is up to date.');
-    } catch (error) { setError(String(error)); } finally { setBusy(false); }
+    } catch (error) { if (mounted.current) setError(String(error)); }
+    finally { await minimumAnimation; if (mounted.current) { setCheckingUpdate(false); setBusy(false); } }
   }
   async function install() {
     setBusy(true); setError(''); setProgress(null); setUpdateStatus('Starting update…');
