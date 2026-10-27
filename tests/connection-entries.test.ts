@@ -131,10 +131,11 @@ for (const kind of ['wifi', 'usb', 'bluetooth'] as const) test(`factory reset ov
   calls.length = 0;
   await assert.rejects(model.send(selected, { operation: 33 }), /confirmation/);
   assert.equal(calls.length, 0);
-  selected.state.factoryResetSupported = false;
+  selected.state.factoryResetSupported = false; selected.state.build = 36;
   await assert.rejects(model.send(selected, { operation: 33, factoryResetConfirmed: true }), /supported firmware/);
   assert.equal(calls.length, 0);
-  selected.state.factoryResetSupported = true;
+  // Build 37 restored from a pre-update snapshot reports false despite support.
+  selected.state.build = 37;
   for (const reply of ['missing', 'disconnect'] as const) {
     resetReply = reply; calls.length = 0;
     await assert.rejects(model.send(selected, { operation: 33, factoryResetConfirmed: true }), /acknowledge/);

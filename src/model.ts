@@ -172,7 +172,8 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
     let result: Partial<Response> = {};
     if (!light.simulator) {
       try {
-        if (payload.operation === 33 && (!light.state.factoryResetSupported || !payload.factoryResetConfirmed)) throw new Error('Factory reset requires supported firmware and confirmation.');
+        // Build 37 implements reset, but OTA restoration can overwrite its support flag.
+        if (payload.operation === 33 && ((!light.state.factoryResetSupported && light.state.build !== 37) || !payload.factoryResetConfirmed)) throw new Error('Factory reset requires supported firmware and confirmation.');
         const connection = connections.get(light.id);
         if (light.transport && !connection) throw new Error('Device disconnected. Find Luxio again to reconnect.');
         if (needsChrome(light)) throw new Error('Use Google Chrome for local HTTP access.');
