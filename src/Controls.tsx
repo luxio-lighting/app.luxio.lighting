@@ -3,10 +3,10 @@ import { Minus, Plus, Sun, X } from 'lucide-react';
 import { colorCSS, emptyColor, paletteCSS, type Light } from './model';
 import type { Color } from '../shared/protocol/src/index';
 
-export function Modal({ title, children, close }: { title: string; children: ReactNode; close: () => void }) {
+export function Modal({ title, children, close, className = '' }: { title: string; children: ReactNode; close: () => void; className?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
-  return <dialog ref={dialog} aria-label={title} className="sheet" onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === dialog.current) close(); }}>
+  return <dialog ref={dialog} aria-label={title} className={`sheet ${className}`} onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === dialog.current) close(); }}>
     <div className="sheet-inner"><header className="sheet-header"><h2>{title}</h2><button className="icon-button" aria-label="Close" onClick={close}><X size={20} /></button></header>{children}</div>
   </dialog>;
 }

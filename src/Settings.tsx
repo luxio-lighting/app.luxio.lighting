@@ -59,7 +59,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
     finally { setBusy(false); }
   }
 
-  return <Modal title={wifi ? 'Wi-Fi' : update ? 'Firmware Update' : 'Settings'} close={() => { if (!busy) { if (wifi) { scanGeneration.current++; setScanning(false); setNetworkOpen(false); setWifi(false); setPassword(''); setError(''); } else if (update) setUpdate(false); else close(); } }}><div className="sheet-body settings-body">
+  return <Modal className="settings-sheet" title={wifi ? 'Wi-Fi' : update ? 'Firmware Update' : 'Settings'} close={() => { if (!busy) { if (wifi) { scanGeneration.current++; setScanning(false); setNetworkOpen(false); setWifi(false); setPassword(''); setError(''); } else if (update) setUpdate(false); else close(); } }}><div className="sheet-body settings-body">
     {wifi ? <form className="wifi-form" onSubmit={async event => {
       event.preventDefault();
       if (busy || scanning || !selectedValue || !ssid) return;
@@ -132,13 +132,12 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
         </>}
         {light.simulator && <><p className="field-label">SIMULATOR</p><div className="group"><p className="field-note padded">A virtual Luxio running in this browser. Settings and saved items are kept on this device.</p><button type="button" className="link-row danger" onClick={() => setConfirmRemove(true)}>Remove Simulator</button></div></>}
         {!valid && <p className="error">Enter a name, 1–1024 LEDs, and valid, different GPIO pins (0–54).</p>}
-        <div className="settings-save"><button className="primary-button full" disabled={!valid || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Saving…</> : 'Save'}</button></div>
       </form>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
     {confirmWifi && <div className="inline-confirm" role="alert"><h3>Disable Wi-Fi?</h3><p>Saving will restart Luxio and disconnect this browser and Matter. Reconnect using Bluetooth or USB to enable Wi-Fi again.</p><button className="danger-button" disabled={busy} onClick={() => { setConfirmWifi(false); void save(); }}>Disable Wi-Fi</button><button className="text-button" onClick={() => setConfirmWifi(false)}>Cancel</button></div>}
     {light.simulator && confirmRemove && <div className="inline-confirm" role="alert"><h3>Remove Simulator?</h3><p>Its settings and saved library will be removed from this browser.</p><button className="danger-button" onClick={() => { remove(light); removed(); }}>Remove</button><button className="text-button" onClick={() => setConfirmRemove(false)}>Cancel</button></div>}
-  </div></Modal>;
+  </div>{!wifi && !update && <footer className="settings-save"><button type="submit" form="settings-form" className="primary-button full" disabled={!valid || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Saving…</> : 'Save'}</button></footer>}</Modal>;
 
   async function scanWifi() {
     if (scanning) return;
