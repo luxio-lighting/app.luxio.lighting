@@ -108,8 +108,8 @@
 .editor-tabs { height: 38px; flex-shrink: 0; display: flex; gap: 10px; align-items: center; background: #171717; border-bottom: 1px solid #262626; padding: 0 12px; }
 .editor-tabs > button { color: #a3a3a3; }
 .editor-tab { align-self: stretch; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d4d4d4; padding: 0 10px; font-size: 12px; max-width: 80%; }
-.editor-tab svg { width: 14px; height: 14px; color: var(--foreground); }
-.editor-tab > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-tab svg { width: 14px; height: 14px; color: var(--foreground); flex-shrink: 0; }
+.editor-tab .extension { flex-shrink: 0; }
 .editor-language { color: #737373; font-size: 11px; margin-left: auto; }
 .editor-container { flex: 1; min-height: 80px; position: relative; }
 .editor-empty { height: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; color: #a3a3a3; font-size: 12px; }
@@ -194,7 +194,9 @@
 .brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .brand strong { white-space: nowrap; font-size: 14px; font-weight: 650; }
 .brand strong span { color: #a3a3a3; font-weight: 450; }
-.animation-title { min-width: 60px; width: 160px; max-width: 35vw; background: transparent; outline: none; border-bottom: 1px solid transparent; }
+.animation-title-field { display: inline-grid; min-width: 1ch; }
+.animation-title-field::after { content: attr(data-name); grid-area: 1 / 1; white-space: pre; visibility: hidden; padding-right: 2px; overflow: hidden; }
+.animation-title { grid-area: 1 / 1; width: 0; min-width: 100%; background: transparent; outline: none; border-bottom: 1px solid transparent; }
 .animation-title:focus { border-bottom-color: #737373; }
 @media (max-width: 720px) { .toolbar-controls { justify-content: flex-end; } .editor-tabs { gap: 5px; } .editor-language { display: none; } }
 
