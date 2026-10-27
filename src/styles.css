@@ -230,8 +230,8 @@ input::placeholder { color: var(--muted); }
 .parameter-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
 .parameter-row output { color: var(--muted); }
 .parameter-row input { grid-column: 1 / -1; }
-.connection-banner { padding: 13px 30px; background: #ffa76c12; color: #e9c5aa; font-size: 12px; display: flex; justify-content: space-between; gap: 10px; }
-.connection-banner button { text-decoration: underline; }
+.connection-banner { width: calc(100% - 32px); max-width: var(--content-max-width); margin: 16px auto; padding: 14px 18px; border-radius: 16px; background: #b4232c; color: #fff; font-size: 12px; line-height: 1.5; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.connection-banner button { flex-shrink: 0; color: #fff; text-decoration: underline; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; background: #262626; border: 1px solid #ffffff16; padding: 12px 12px 12px 20px; border-radius: 15px; display: flex; align-items: center; gap: 16px; max-width: min(620px, calc(100% - 28px)); width: max-content; box-shadow: 0 10px 35px #0005; font-size: 13px; line-height: 1.6; }
 .spinning { animation: spin 1.3s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -258,6 +258,7 @@ input::placeholder { color: var(--muted); }
   .app:not(.has-selection) .main { display: none; }
   .has-selection .sidebar { display: none; }
   .control-header { position: sticky; top: max(12px, env(safe-area-inset-top)); z-index: 3; width: calc(100% - 24px); margin: max(12px, env(safe-area-inset-top)) auto 0; }
+  .connection-banner { width: calc(100% - 24px); margin: 12px auto; }
   .control-header-content { padding: 16px; }
   .control-topbar { gap: 10px; margin-bottom: 14px; }
   .back-button { display: flex; }
