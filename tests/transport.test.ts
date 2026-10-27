@@ -97,7 +97,7 @@ test('Setup hands an already selected USB port to the app without another picker
   const { connections } = await import('../src/transport');
   try {
     const light = await findDevice('usb', port as unknown as SerialPort);
-    assert.equal(light.id, 'setup-handoff'); assert.equal(light.transport, 'usb'); assert.equal(light.online, true);
+    assert.equal(light.id, 'usb:setup-handoff'); assert.equal(light.transport, 'usb'); assert.equal(light.online, true);
     const previous = connections.get(light.id);
     const same = await findDevice('usb', port as unknown as SerialPort);
     assert.equal(same, light); assert.notEqual(connections.get(light.id), previous);
@@ -105,7 +105,7 @@ test('Setup hands an already selected USB port to the app without another picker
     await connections.get(light.id)?.close(); remove(light);
     assert.equal(closes, 2);
   } finally {
-    await connections.get('setup-handoff')?.close();
+    await connections.get('usb:setup-handoff')?.close();
     if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor);
     else Reflect.deleteProperty(globalThis, 'navigator');
   }

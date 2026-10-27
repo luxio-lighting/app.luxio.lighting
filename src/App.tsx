@@ -80,8 +80,8 @@ export default function App() {
       <div className="row-actions sidebar-actions"><button className="icon-button refresh-button" aria-label="Refresh devices" disabled={discovering} onClick={() => void discover(true)}><RefreshCw size={18} className={discovering ? 'spinning' : ''} /></button><button className="icon-button" aria-label="Add Device" onClick={() => setAdd(true)}><Plus size={23} /></button></div>
       <div className="device-list">
         {devices.map(light => <article key={light.id} className={`device-card ${light.state.on && light.stateKnown !== false ? 'powered' : ''} ${selected === light.id ? 'selected' : ''} ${light.online ? '' : 'offline'}`}>
-          <Backdrop light={light} /><div className="device-card-content"><div className="device-card-row"><button className="device-open" onClick={() => open(light)} aria-label={`Open ${light.state.config.name}`}>{light.simulator ? <Monitor size={18} /> : light.transport === 'bluetooth' ? <Bluetooth size={18} /> : light.transport === 'usb' ? <Usb size={18} /> : <Wifi size={18} />}<span>{light.state.config.name}</span></button><Power on={light.state.on} change={on => void action(light, { operation: 15, on })} label={`${light.state.config.name} power`} disabled={!light.online} /></div>
-          <div className="device-brightness" inert={!light.state.on || light.stateKnown === false}><div><Brightness label={`${light.state.config.name} brightness`} value={light.state.brightness} change={brightness => void action(light, { operation: 2, brightness })} disabled={!light.online || !light.state.on} /></div></div>
+          <Backdrop light={light} /><div className="device-card-content"><div className="device-card-row"><button className="device-open" onClick={() => open(light)} aria-label={`Open ${light.state.config.name}${light.simulator ? '' : ` via ${light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}`}`} title={light.simulator ? 'Simulator' : light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}>{light.simulator ? <Monitor size={18} /> : light.transport === 'bluetooth' ? <Bluetooth size={18} /> : light.transport === 'usb' ? <Usb size={18} /> : <Wifi size={18} />}<span>{light.state.config.name}</span></button><Power on={light.state.on} change={on => void action(light, { operation: 15, on })} label={`${light.state.config.name}${light.simulator ? '' : ` ${light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}`} power`} disabled={!light.online} /></div>
+          <div className="device-brightness" inert={!light.state.on || light.stateKnown === false}><div><Brightness label={`${light.state.config.name}${light.simulator ? '' : ` ${light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}`} brightness`} value={light.state.brightness} change={brightness => void action(light, { operation: 2, brightness })} disabled={!light.online || !light.state.on} /></div></div>
           {!light.online && !needsChrome(light) && <span className="offline-label">Offline</span>}</div>
         </article>)}
         {!devices.length && <div className="empty-devices"><span className="empty-icon"><LightbulbOff size={30} /></span><h2>No Luxio Devices Found</h2><p>Turn your ESP32 into a Luxio light.</p><button className="primary-button" onClick={() => setAdd(true)}>Flash my ESP32</button><button className="text-button simulator-link" onClick={() => open(addSimulator())}>Try the Simulator</button></div>}
@@ -137,7 +137,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
         await send(light, { operation: [30, 23, 10][item.mode], colorId: item.mode === 0 ? item.id : undefined, gradientId: item.mode === 1 ? item.id : undefined, scriptId: item.mode === 2 ? item.id : undefined });
         if (item.mode === 2) {
           let overrides;
-          try { overrides = JSON.parse(localStorage.getItem(`luxio-parameters-${light.id}-${item.id}`) ?? '[]'); } catch { overrides = []; }
+          try { overrides = JSON.parse(localStorage.getItem(`luxio-parameters-${light.simulator ? light.id : light.state.deviceId}-${item.id}`) ?? '[]'); } catch { overrides = []; }
           if (overrides.length) await send(light, { operation: 32, scriptId: item.id, parameters: parseParameters(item.source!, overrides) });
         }
       }
@@ -145,7 +145,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
       else if (item.mode === 1) await send(light, { operation: 17, gradient: { id: crypto.randomUUID(), name: '', colors: item.colors } });
       else {
         let overrides;
-        try { overrides = JSON.parse(localStorage.getItem(`luxio-parameters-${light.id}-${item.id}`) ?? '[]'); } catch { overrides = []; }
+        try { overrides = JSON.parse(localStorage.getItem(`luxio-parameters-${light.simulator ? light.id : light.state.deviceId}-${item.id}`) ?? '[]'); } catch { overrides = []; }
         await send(light, { operation: 31, script: { id: '', name: `Luxio · ${item.name}`, source: item.source!, mode: 2 } });
         if (Array.isArray(overrides) && overrides.length) await send(light, { operation: 32, script: { id: '', name: `Luxio · ${item.name}`, source: '' }, parameters: parseParameters(item.source!, overrides) });
       }
@@ -221,7 +221,7 @@ function Control({ light, back, settings, notice }: { light: Light; back: () => 
     try {
       await send(light, { operation: 32, scriptId: state.activeScriptId || undefined, script: state.activeScriptId ? undefined : { id: '', name: state.scriptName ?? '', source: '' }, parameters: values });
       const preset = builtins.find(item => state.scriptName === `Luxio · ${item.name}`);
-      localStorage.setItem(`luxio-parameters-${light.id}-${preset?.id ?? state.activeScriptId}`, JSON.stringify(values));
+      localStorage.setItem(`luxio-parameters-${light.simulator ? light.id : light.state.deviceId}-${preset?.id ?? state.activeScriptId}`, JSON.stringify(values));
     } catch (error) { notice(`Couldn’t change animation settings. ${String(error)}`); }
   }
 }

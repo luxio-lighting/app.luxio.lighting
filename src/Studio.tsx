@@ -20,7 +20,7 @@ export function Studio({ light, item, close, notice }: { light: Light; item?: It
   useEffect(() => {
     const host = window as Window & { luxioStudio?: StudioBridge };
     const connection: StudioBridge = {
-      target: `luxio://${encodeURIComponent(light.id)}`,
+      target: `luxio://${encodeURIComponent(light.simulator ? light.id : light.state.deviceId)}`,
       name: light.state.config.name,
       item,
       request: async ({ id: _id, ...request }) => {

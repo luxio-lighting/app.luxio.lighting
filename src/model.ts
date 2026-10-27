@@ -13,6 +13,7 @@ export let lights: Light[] = [];
 export let storageError = '';
 const listeners = new Set<() => void>();
 const queues = new Map<string, Promise<unknown>>();
+const refreshing = new Set<string>();
 let requestID = 1;
 
 try {
@@ -32,7 +33,15 @@ try {
       if (light.state.gradient) light.state.gradient = gradientSchema.parse(light.state.gradient);
       if (light.source) parseParameters(light.source, light.state.parameters);
       light.online = Boolean(light.simulator);
-      lights.push(light);
+      if (!light.simulator && light.transport) {
+        // Older versions replaced the Wi-Fi entry with a direct connection.
+        if (light.id === light.state.deviceId && light.address && !lights.some(item => item.id === light.state.deviceId)) {
+          lights.push({ ...light, id: light.state.deviceId, transport: undefined });
+        }
+        light.id = `${light.transport}:${light.state.deviceId}`;
+        light.address = '';
+      }
+      if (!lights.some(item => item.id === light.id)) lights.push(light);
     } catch { /* A malformed device must not prevent other devices from loading. */ }
   }
 } catch { storageError = 'Browser storage is unavailable. Changes will last for this session only.'; }
@@ -72,7 +81,7 @@ export function discoverDevices(devices: unknown[]) {
     let address: URL;
     try { address = new URL(`http://${d.lan_ip}`); } catch { continue; }
     if (address.username || address.password) continue;
-    let light = lights.find(light => !light.simulator && light.id === d.deviceId);
+    let light = lights.find(light => !light.simulator && !light.transport && light.state.deviceId === d.deviceId);
     if (light) light.address = address.origin;
     else {
       light = { id: d.deviceId, address: address.origin, online: false, stateKnown: false,
@@ -80,6 +89,8 @@ export function discoverDevices(devices: unknown[]) {
           config: { name: typeof d.name === 'string' ? d.name : 'Luxio', stripType: 'WS2812', ledCount: 1, gpio: 0, channel: 100 },
           brightness: 256, on: false, color: { ...emptyColor }, activeScriptId: '', lanIp: d.lan_ip, mode: 0 },
         library: { colors: [], gradients: [], scripts: [] } };
+      const peer = lights.find(item => !item.simulator && item.state.deviceId === d.deviceId && item.stateKnown !== false);
+      if (peer) Object.assign(light, { state: peer.state, source: peer.source, library: peer.library, network: peer.network, animationError: peer.animationError, stateKnown: true });
       lights.push(light);
     }
     found.push(light);
@@ -104,16 +115,19 @@ export async function findDevice(kind: 'usb' | 'bluetooth', port?: SerialPort) {
     await connection.open();
     const response = await connection.request({ id: requestID++, operation: 0 });
     if (!response.state?.deviceId || !response.state.config) throw new Error('This is not a Luxio device.');
-    let light = lights.find(light => !light.simulator && light.id === response.state!.deviceId);
+    const entryId = `${kind}:${response.state.deviceId}`;
+    let light = lights.find(light => light.id === entryId);
     if (!light) {
-      light = { id: response.state.deviceId, address: '', online: true, state: response.state, library: { colors: [], gradients: [], scripts: [] } };
+      light = { id: entryId, address: '', online: true, state: response.state, library: lights.find(item => !item.simulator && item.state.deviceId === response.state!.deviceId)?.library ?? { colors: [], gradients: [], scripts: [] } };
       lights.push(light);
     }
     await connections.get(light.id)?.close();
     Object.assign(light, { state: response.state, stateKnown: true, online: true, transport: kind, source: undefined, animationError: response.animationError, network: response.networkStatus });
     connections.set(light.id, connection);
     connection.ondisconnect = () => { if (connections.get(light!.id) === connection) { connections.delete(light!.id); light!.online = false; publish(); } };
-    publish(); return light;
+    // The handshake identifies the board. Read again in its shared queue so an
+    // older handshake cannot overwrite a change made through another connection.
+    await send(light, { operation: 0 }); return light;
   } catch (error) { await connection.close(); throw error; }
 }
 
@@ -123,22 +137,23 @@ export async function connect(input: string) {
   if (needsChrome({ address: address.origin } as Light)) throw new Error('Use Google Chrome to connect to Luxio over local HTTP.');
   const response = await requestHttp(address.origin, { id: requestID++, operation: 0 });
   if (!response.state?.deviceId || !response.state.config) throw new Error('This address did not return a Luxio device.');
-  let light = lights.find(light => !light.simulator && light.id === response.state!.deviceId);
+  let light = lights.find(light => !light.simulator && !light.transport && light.state.deviceId === response.state!.deviceId);
   if (light) {
     if (light.state.animationRevision !== response.state.animationRevision || light.state.scriptName !== response.state.scriptName || light.state.activeScriptId !== response.state.activeScriptId) light.source = undefined;
     Object.assign(light, { address: address.origin, state: response.state, network: response.networkStatus, stateKnown: true, online: true, transport: undefined });
   }
   else {
-    light = { id: response.state.deviceId, address: address.origin, state: response.state, network: response.networkStatus, stateKnown: true, online: true, transport: undefined, library: { colors: [], gradients: [], scripts: [] } };
+    light = { id: response.state.deviceId, address: address.origin, state: response.state, network: response.networkStatus, stateKnown: true, online: true, transport: undefined, library: lights.find(item => !item.simulator && item.state.deviceId === response.state!.deviceId)?.library ?? { colors: [], gradients: [], scripts: [] } };
     lights.push(light);
   }
-  publish(); return light;
+  await send(light, { operation: 0 }); return light;
 }
 
-// Serialize each light's requests. A failed mutation is never replayed automatically.
+// Serialize requests across all connections to the same physical light. A failed mutation is never replayed automatically.
 export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Response> {
   const request = { ...payload, id: requestID++ };
-  const task = (queues.get(light.id) ?? Promise.resolve()).catch(() => {}).then(async () => {
+  const deviceKey = light.simulator ? light.id : light.state.deviceId;
+  const task = (queues.get(deviceKey) ?? Promise.resolve()).catch(() => {}).then(async () => {
     let result: Partial<Response> = {};
     if (!light.simulator) {
       try {
@@ -146,20 +161,23 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
         if (light.transport && !connection) throw new Error('Device disconnected. Find Luxio again to reconnect.');
         if (needsChrome(light)) throw new Error('Use Google Chrome for local HTTP access.');
         result = connection ? await connection.request(request) : await requestHttp(light.address, request);
-        light.animationError = result.animationError || undefined;
-        light.online = true;
-        if (result.state) {
-          if (light.state.animationRevision !== result.state.animationRevision || light.state.scriptName !== result.state.scriptName || light.state.activeScriptId !== result.state.activeScriptId) light.source = undefined;
-          light.state = result.state; light.stateKnown = true;
-        }
-        if (result.networkStatus) light.network = result.networkStatus;
-        if (result.script?.source && (!payload.scriptId || payload.scriptId === light.state.activeScriptId)) light.source = result.script.source;
-        if (payload.operation === 31 && payload.script) light.source = payload.script.source;
         if (payload.operation !== 0 && !result.state) {
           const statusRequest = { id: requestID++, operation: 0 };
           const status = connection ? await connection.request(statusRequest) : await requestHttp(light.address, statusRequest);
-          light.animationError = status.animationError || undefined;
-          if (status.state) light.state = status.state;
+          result = { ...result, state: status.state, animationError: status.animationError, networkStatus: status.networkStatus ?? result.networkStatus };
+        }
+        light.animationError = result.animationError || undefined;
+        if (result.state) {
+          if (result.state.deviceId !== light.state.deviceId) throw new Error('This connection now points to a different Luxio. Reconnect it.');
+          if (light.state.animationRevision !== result.state.animationRevision || light.state.scriptName !== result.state.scriptName || light.state.activeScriptId !== result.state.activeScriptId) light.source = undefined;
+          light.state = result.state; light.stateKnown = true;
+        }
+        light.online = true;
+        if (result.networkStatus) light.network = result.networkStatus;
+        if (result.script?.source && (result.script.id === light.state.activeScriptId || (payload.operation === 6 && (!payload.scriptId || payload.scriptId === light.state.activeScriptId)))) light.source = result.script.source;
+        if (payload.operation === 31 && payload.script) light.source = payload.script.source;
+        for (const peer of lights) if (!peer.simulator && peer !== light && peer.state.deviceId === light.state.deviceId) {
+          Object.assign(peer, { state: light.state, stateKnown: light.stateKnown, source: light.source, animationError: light.animationError, network: light.network });
         }
       } catch (error) {
         if (payload.operation === 0) light.online = false;
@@ -239,8 +257,8 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
     }
     publish(); return { id: request.id, scripts: [], error: '', ...result } as Response;
   });
-  queues.set(light.id, task);
-  void task.finally(() => { if (queues.get(light.id) === task) queues.delete(light.id); }).catch(() => {});
+  queues.set(deviceKey, task);
+  void task.finally(() => { if (queues.get(deviceKey) === task) queues.delete(deviceKey); }).catch(() => {});
   return task;
 }
 
@@ -263,14 +281,18 @@ export async function loadLibrary(light: Light) {
     const result = await send(light, { operation: 6, scriptId: item.id });
     if (result.script) library.scripts.push(result.script);
   }
-  light.library = library; publish();
+  for (const peer of lights) if (!peer.simulator && peer.state.deviceId === light.state.deviceId) peer.library = library;
+  publish();
 }
 
 export async function refresh(light: Light) {
-  if (light.simulator || queues.has(light.id) || needsChrome(light) || (light.transport && !connections.has(light.id))) return;
-  const revision = light.state.animationRevision;
-  await send(light, { operation: 0 });
-  if (light.state.mode === 2 && (!light.source || revision !== light.state.animationRevision)) await send(light, { operation: 6 });
+  if (light.simulator || refreshing.has(light.id) || needsChrome(light) || (light.transport && !connections.has(light.id))) return;
+  refreshing.add(light.id);
+  try {
+    const revision = light.state.animationRevision;
+    await send(light, { operation: 0 });
+    if (light.state.mode === 2 && (!light.source || revision !== light.state.animationRevision)) await send(light, { operation: 6 });
+  } finally { refreshing.delete(light.id); }
 }
 
 export function remove(light: Light) { void connections.get(light.id)?.close(); connections.delete(light.id); lights = lights.filter(item => item.id !== light.id); publish(); }
