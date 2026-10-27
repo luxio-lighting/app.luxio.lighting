@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.sdk/
+shared/web/vendor/
+.DS_Store

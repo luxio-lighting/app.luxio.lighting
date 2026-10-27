@@ -1,0 +1,290 @@
+[
+  {
+    "name": "Ruby",
+    "colors": [
+      [
+        255,
+        0,
+        0
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Coral",
+    "colors": [
+      [
+        255,
+        100,
+        80
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Nightlight",
+    "colors": [
+      [
+        255,
+        80,
+        20
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Golden hour",
+    "colors": [
+      [
+        255,
+        110,
+        25
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Amber",
+    "colors": [
+      [
+        255,
+        150,
+        0
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Relax",
+    "colors": [
+      [
+        255,
+        185,
+        80
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Read",
+    "colors": [
+      [
+        255,
+        220,
+        160
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Sunshine",
+    "colors": [
+      [
+        255,
+        225,
+        0
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Lemon",
+    "colors": [
+      [
+        235,
+        255,
+        40
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Lime",
+    "colors": [
+      [
+        145,
+        255,
+        30
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Green",
+    "colors": [
+      [
+        30,
+        255,
+        35
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Emerald",
+    "colors": [
+      [
+        0,
+        255,
+        110
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Mint",
+    "colors": [
+      [
+        30,
+        230,
+        150
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Turquoise",
+    "colors": [
+      [
+        0,
+        255,
+        220
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Cyan",
+    "colors": [
+      [
+        0,
+        255,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Concentrate",
+    "colors": [
+      [
+        170,
+        225,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Moonlight",
+    "colors": [
+      [
+        125,
+        175,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Ocean",
+    "colors": [
+      [
+        10,
+        90,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Blue",
+    "colors": [
+      [
+        30,
+        30,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Iris",
+    "colors": [
+      [
+        125,
+        45,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Violet",
+    "colors": [
+      [
+        175,
+        30,
+        255
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Magenta",
+    "colors": [
+      [
+        255,
+        30,
+        220
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Blush",
+    "colors": [
+      [
+        255,
+        65,
+        140
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  },
+  {
+    "name": "Rose",
+    "colors": [
+      [
+        255,
+        30,
+        70
+      ]
+    ],
+    "isGradient": false,
+    "source": ""
+  }
+]
