@@ -57,7 +57,7 @@ export function Backdrop({ light }: { light: Light }) {
       const progress = reduced || !active || !visible || !from.length ? 1 : Math.min(1, (now - (started ?? now)) / 400);
       const eased = progress * progress * (3 - 2 * progress);
       rendered.current = target.map((color, i) => color.map((value, channel) => (from[i]?.[channel] ?? value) * (1 - eased) + value * eased));
-      if (element.current) element.current.style.background = `linear-gradient(110deg, ${rendered.current.map(rgb => `rgb(${rgb.join(',')})`).join(',')})`;
+      if (element.current) element.current.style.background = `linear-gradient(${state.mode === 2 ? 90 : 110}deg, ${rendered.current.map(rgb => `rgb(${rgb.join(',')})`).join(',')})`;
       if (progress < 1) frame = requestAnimationFrame(paint);
     };
     const update = (colors: Color[], restart = false) => {

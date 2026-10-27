@@ -301,6 +301,6 @@ export function colorCSS(color: Color) {
   return `rgb(${Math.min(255, color.red + color.white + color.warmWhite + color.coolWhite * .8)},${Math.min(255, color.green + color.white + color.warmWhite * .73 + color.coolWhite * .9)},${Math.min(255, color.blue + color.white + color.warmWhite * .4 + color.coolWhite)})`;
 }
 
-export function paletteCSS(colors: Color[]) {
-  return colors.length > 1 ? `linear-gradient(110deg, ${colors.map(colorCSS).join(',')})` : colors.length ? colorCSS(colors[0]) : '#262626';
+export function paletteCSS(colors: Color[], angle = 110) {
+  return colors.length > 1 ? `linear-gradient(${angle}deg, ${colors.map(colorCSS).join(',')})` : colors.length ? colorCSS(colors[0]) : '#262626';
 }
