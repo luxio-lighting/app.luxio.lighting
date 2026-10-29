@@ -66,8 +66,7 @@ export function Flasher({ close, added }: { close: () => void; added: (light: Li
         if ([hardware.bootloaderAddress, 0x10000, hardware.applicationAddress].includes(part.address) && (bytes.length < 24 || bytes[0] !== 0xe9 || new DataView(bytes.buffer).getUint16(12, true) !== hardware.imageChipId)) throw new Error('Firmware image is for a different chip');
         const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).map(byte => byte.toString(16).padStart(2, '0')).join('');
         if (digest !== part.sha256) throw new Error('Firmware download checksum does not match');
-        let data = ''; for (let offset = 0; offset < bytes.length; offset += 8192) data += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-        files.push({ address: part.address, data });
+        files.push({ address: part.address, data: bytes });
       }
       setStatus('Installing Luxio. Keep your ESP32 connected.');
       await loader.writeFlash({ fileArray: files, flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep', eraseAll: false, compress: true,

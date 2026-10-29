@@ -3,11 +3,11 @@ luxio.Config.strip_type max_size:8
 luxio.Wifi.ssid max_size:33
 luxio.Wifi.password max_size:65
 luxio.WifiNetwork.ssid max_size:33
-luxio.Response.wifi_networks max_count:32
+luxio.Response.wifi_networks type:FT_POINTER
 luxio.Response.wifi_scan_error max_size:160
 luxio.Script.id max_size:37
 luxio.Script.name max_size:64
-luxio.Script.source max_size:16385
+luxio.Script.source type:FT_POINTER
 luxio.State.device_id max_size:65
 luxio.State.active_script_id max_size:37
 luxio.State.lan_ip max_size:46
@@ -36,6 +36,20 @@ luxio.Script.parameters max_count:16
 luxio.State.parameters max_count:16
 luxio.Request.parameters max_count:16
 
+luxio.NetworkStatus.bssid max_size:18
+luxio.NetworkStatus.ssid max_size:33
+luxio.NetworkStatus.gateway max_size:46
+luxio.NetworkStatus.dns max_count:2 max_size:46
+luxio.Response.animation_error max_size:160
 luxio.Script.preview max_count:8
-
 luxio.State.animation_preview max_count:8
+
+luxio.Request.script type:FT_POINTER
+luxio.Response.script type:FT_POINTER
+luxio.Request.gradient type:FT_POINTER
+luxio.Response.gradient type:FT_POINTER
+luxio.Response.state type:FT_POINTER
+luxio.Request descriptorsize:DS_4
+luxio.Response descriptorsize:DS_4
+
+luxio.State.supported_strip_types max_count:16 max_size:8

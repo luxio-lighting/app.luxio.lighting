@@ -18,3 +18,16 @@ for (const [build, capability, supported] of [
   assert.equal(/^<button[^>]* disabled=/.test(button), !supported);
   assert.equal(html.includes('Update Luxio’s firmware to enable Factory Reset.'), !supported);
 });
+
+
+for (const supportedStripTypes of [['WS2811', 'WS2815', 'FUTURE'], [], undefined]) {
+  test(`strip dropdown uses firmware capabilities: ${JSON.stringify(supportedStripTypes)}`, () => {
+    const light: Light = { id: 'test', address: '', online: true,
+      state: { build: 39, supportedStripTypes, deviceId: 'test', config: { name: 'Test', stripType: 'WS2811', ledCount: 60, gpio: 16, channel: 0 }, on: true, brightness: 100, color: { red: 255, green: 0, blue: 0, white: 0, warmWhite: 0, coolWhite: 0 }, activeScriptId: '', lanIp: '' },
+      library: { colors: [], gradients: [], scripts: [] } };
+    const html = renderToStaticMarkup(createElement(Settings, { light, close() {}, removed() {}, notice() {} }));
+    const select = html.match(/<select aria-label="Strip type"[^>]*>(.*?)<\/select>/)![1];
+    const types = [...select.matchAll(/<option[^>]*>(.*?)<\/option>/g)].map(match => match[1]);
+    assert.deepEqual(types, supportedStripTypes?.length ? supportedStripTypes : ['WS2811']);
+  });
+}

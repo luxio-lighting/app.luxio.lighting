@@ -1,5 +1,5 @@
 import { connections, DeviceConnection, serviceUUID } from './transport';
-import { colorSchema, configSchema, savedColorSchema, gradientSchema, scriptSchema, requestHttp, type Color, type State, type Script, type Gradient, type SavedColor, type Request, type Response } from '../shared/protocol/src/index';
+import { simulatorStripTypes, colorSchema, configSchema, savedColorSchema, gradientSchema, scriptSchema, requestHttp, type Color, type State, type Script, type Gradient, type SavedColor, type Request, type Response } from '../shared/protocol/src/index';
 import { parseParameters, updateParameters } from '../shared/protocol/src/parameters';
 import { parsePreview } from '../shared/protocol/src/preview';
 
@@ -41,6 +41,7 @@ try {
       if (light.state.gradient) light.state.gradient = gradientSchema.parse(light.state.gradient);
       if (light.source) parseParameters(light.source, light.state.parameters);
       light.online = Boolean(light.simulator);
+      if (light.simulator) light.state.supportedStripTypes = [...simulatorStripTypes];
       if (!light.simulator && light.transport) {
         // Older versions replaced the Wi-Fi entry with a direct connection.
         if (light.id === light.state.deviceId && light.address && !lights.some(item => item.id === light.state.deviceId)) {
@@ -72,7 +73,7 @@ export function addSimulator() {
   if (existing) return existing;
   const light: Light = {
     id: crypto.randomUUID(), address: '', simulator: true, online: true,
-    state: { deviceId: 'simulator', build: 36, config: { name: 'Luxio Simulator', stripType: 'WS2805', ledCount: 60, gpio: 16, channel: 100 }, brightness: 180, on: true,
+    state: { supportedStripTypes: [...simulatorStripTypes], deviceId: 'simulator', build: 36, config: { name: 'Luxio Simulator', stripType: 'WS2805', ledCount: 60, gpio: 16, channel: 100 }, brightness: 180, on: true,
       color: { ...emptyColor, green: 210, blue: 255 }, activeScriptId: '', lanIp: '', mode: 0 },
     library: { colors: [], gradients: [], scripts: [] },
   };
@@ -222,6 +223,7 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
         case 15: state.on = Boolean(request.on); break;
         case 3: {
           const config = configSchema.parse(request.config);
+          if (!simulatorStripTypes.includes(config.stripType)) throw new Error('Unsupported strip type.');
           if (config.stripType !== state.config.stripType || config.ledCount !== state.config.ledCount) {
             state.mode = 0; state.color = { ...emptyColor, red: 255, green: 110, blue: 25 }; state.activeColorId = '';
           }
@@ -272,7 +274,7 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
       }
       const channels = state.mode === 1 ? state.gradient?.colors ?? [] : state.mode === 0 ? [state.color] : [];
       const strip = state.config.stripType;
-      if (channels.some(color => strip === 'WS2812' ? color.white || color.warmWhite || color.coolWhite : strip === 'WS2805' ? color.white : color.warmWhite || color.coolWhite)) throw new Error('This color uses channels unavailable on this strip type.');
+      if (channels.some(color => ['WS2812', 'WS2811', 'WS2813', 'WS2815'].includes(strip) ? color.white || color.warmWhite || color.coolWhite : strip === 'WS2805' ? color.white : color.warmWhite || color.coolWhite)) throw new Error('This color uses channels unavailable on this strip type.');
       if (state.mode !== 2) { state.activeScriptId = ''; state.scriptName = ''; state.parameters = []; state.animationPreview = []; light.source = undefined; }
       if (state.mode !== 1) { state.gradient = undefined; state.activeGradientId = ''; }
       if (state.mode !== 0) state.activeColorId = '';

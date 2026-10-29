@@ -59,7 +59,7 @@ test('gradient edits remain in RAM until saved, support eight stops, and validat
 test('all ten iOS animations execute in the local Lua runtime for every supported strip', () => {
   const animations = presets.filter(preset => !preset.isGradient);
   assert.equal(animations.length, 10);
-  for (const strip of ['WS2805', 'WS2814', 'WS2812', 'SK6812']) for (const preset of animations) {
+  for (const strip of ['WS2805', 'WS2814', 'WS2812', 'SK6812', 'WS2811', 'WS2813', 'WS2815']) for (const preset of animations) {
     const animation = new Animation(preset.source, 60, strip);
     try {
       for (let frame = 0; frame < 5; frame++) {
@@ -151,7 +151,7 @@ test('directory devices remain visible without HTTP access and reconnect by stab
 });
 
 test('all animations also run on firmware without bulk Lua APIs, including dedicated white LEDs', () => {
-  for (const strip of ['WS2805', 'WS2814', 'WS2812', 'SK6812']) for (const preset of presets.filter(p => !p.isGradient)) {
+  for (const strip of ['WS2805', 'WS2814', 'WS2812', 'SK6812', 'WS2811', 'WS2813', 'WS2815']) for (const preset of presets.filter(p => !p.isGradient)) {
     const animation = new Animation(preset.source.replace('if luxio_fill_hsv and luxio_render_waves then', 'luxio_fill_hsv = nil\nluxio_render_waves = nil\nluxio_fill = nil\nif luxio_fill_hsv and luxio_render_waves then'), 144, strip);
     try {
       for (let frame = 0; frame < 3; frame++) {
@@ -181,4 +181,18 @@ test('browser guidance excludes simulators and direct USB/BLE connections', () =
     if (oldLocation) Object.defineProperty(globalThis, 'location', oldLocation); else Reflect.deleteProperty(globalThis, 'location');
     if (oldNavigator) Object.defineProperty(globalThis, 'navigator', oldNavigator); else Reflect.deleteProperty(globalThis, 'navigator');
   }
+});
+
+
+test('new RGB strips are advertised and reject white channels', async () => {
+  for (const stripType of ['WS2811', 'WS2813', 'WS2815']) {
+    assert.ok(light.state.supportedStripTypes?.includes(stripType));
+    await model.send(light, { operation: 3, config: { ...light.state.config, stripType } });
+    await model.send(light, { operation: 1, color: { ...model.emptyColor, red: 255 } });
+    for (const channel of ['white', 'warmWhite', 'coolWhite']) {
+      await assert.rejects(model.send(light, { operation: 1, color: { ...model.emptyColor, [channel]: 255 } }), /unavailable/);
+    }
+  }
+  await assert.rejects(model.send(light, { operation: 3, config: { ...light.state.config, stripType: 'UNKNOWN' } }), /Unsupported/);
+  await model.send(light, { operation: 3, config: { ...light.state.config, stripType: 'WS2805' } });
 });

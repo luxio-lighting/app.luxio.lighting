@@ -119,7 +119,7 @@ export function ColorWheel({ colors, change, strip, gradient }: { colors: Color[
 
   function move(x: number, y: number, commit = false) {
     let color: Color;
-    if (white && strip !== 'WS2812') {
+    if (white && ['WS2805', 'WS2814', 'SK6812'].includes(strip)) {
       const cool = Math.round(Math.min(1, Math.max(0, (y + 1) / 2)) * 255);
       color = strip === 'WS2805' ? { ...emptyColor, warmWhite: 255 - cool, coolWhite: cool } : { ...emptyColor, white: 255 };
     } else {
@@ -160,7 +160,7 @@ export function ColorWheel({ colors, change, strip, gradient }: { colors: Color[
     </div>
     <div className="wheel-toolbar">
       <div className="wheel-modes"><button className={!white ? 'selected' : ''} aria-label="Use color wheel" aria-pressed={!white} onClick={() => { setWhite(false); const next = points.map((p, i) => i === selected ? { ...emptyColor, red: 255 } : p); setPoints(next); latest.current = next; change(next); }}><span className="rainbow-disc" /></button>
-        {strip !== 'WS2812' && <button className={white ? 'selected' : ''} aria-label={strip === 'WS2805' ? 'Use white temperature' : 'Use white channel'} aria-pressed={white} onClick={() => { setWhite(true); const next = points.map((p, i) => i === selected ? strip === 'WS2805' ? { ...emptyColor, warmWhite: 128, coolWhite: 127 } : { ...emptyColor, white: 255 } : p); setPoints(next); latest.current = next; change(next); }}><span className={strip === 'WS2805' ? 'white-disc' : 'neutral-disc'} /></button>}
+        {['WS2805', 'WS2814', 'SK6812'].includes(strip) && <button className={white ? 'selected' : ''} aria-label={strip === 'WS2805' ? 'Use white temperature' : 'Use white channel'} aria-pressed={white} onClick={() => { setWhite(true); const next = points.map((p, i) => i === selected ? strip === 'WS2805' ? { ...emptyColor, warmWhite: 128, coolWhite: 127 } : { ...emptyColor, white: 255 } : p); setPoints(next); latest.current = next; change(next); }}><span className={strip === 'WS2805' ? 'white-disc' : 'neutral-disc'} /></button>}
       </div>
 
     </div>

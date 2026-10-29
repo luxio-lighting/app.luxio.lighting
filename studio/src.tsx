@@ -1,3 +1,4 @@
+import { simulatorStripTypes } from '../shared/protocol/src/index';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
@@ -75,6 +76,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
   const [simulatorOpen, setSimulatorOpen] = useState(true);
   const [count, setCount] = useState(60);
   const [stripType, setStripType] = useState('WS2805');
+  const [supportedStripTypes, setSupportedStripTypes] = useState<string[]>(simulatorStripTypes);
   const [position, setPosition] = useState({ lineNumber: 1, column: 1 });
   const canvas = useRef<HTMLCanvasElement>(null);
   const worker = useRef<Worker | null>(null);
@@ -116,7 +118,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
     setLoading(true);
     Promise.all([requestDevice(target, { id: nextId.current++, operation: 0 }), requestDevice(target, { id: nextId.current++, operation: 5 })]).then(([status, list]) => {
       if (cancelled) return;
-      if (status.state) { setCount(status.state.config.ledCount); setStripType(status.state.config.stripType); }
+      if (status.state) { setCount(status.state.config.ledCount); setStripType(status.state.config.stripType); setSupportedStripTypes(status.state.supportedStripTypes?.length ? status.state.supportedStripTypes : [status.state.config.stripType]); }
       setDocuments(previous => {
         const merged = previous.filter(d => d.address !== target || !d.scriptId || list.scripts.some(script => script.id === d.scriptId));
         // Keep edits to animations removed on the device as local simulator drafts.
@@ -372,7 +374,7 @@ export default function StudioEditor({ connection, close, closeAction }: { conne
       <Collapsible open={simulatorOpen} onOpenChange={setSimulatorOpen} className="simulator">
           <div className="simulator-heading"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" aria-label={simulatorOpen ? 'Collapse simulator' : 'Expand simulator'}>{simulatorOpen ? <ChevronDown /> : <ChevronRight />}<Monitor />Simulator</Button></CollapsibleTrigger><span className={`simulation-state ${running ? 'running' : ''}`}><span />{running ? 'Running' : 'Stopped'}</span></div>
           <CollapsibleContent><div className="simulation-settings">
-            <Select value={stripType} disabled={running || target !== 'simulator'} onValueChange={setStripType}><SelectTrigger aria-label="Strip type"><SelectValue /></SelectTrigger><SelectContent>{['WS2805', 'WS2814', 'WS2812', 'SK6812'].map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent></Select>
+            <Select value={stripType} disabled={running || target !== 'simulator'} onValueChange={setStripType}><SelectTrigger aria-label="Strip type"><SelectValue /></SelectTrigger><SelectContent>{(target === 'simulator' ? simulatorStripTypes : supportedStripTypes).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent></Select>
             <label className="count-control"><Input aria-label="LED count" type="number" min={1} max={1024} value={count} disabled={running || target !== 'simulator'} onChange={e => setCount(Math.min(1024, Math.max(1, Number(e.target.value) || 1)))} /><span>LEDs</span></label>
           </div><canvas ref={canvas} className="strip-canvas" aria-label="Simulated LED strip" /></CollapsibleContent>
         </Collapsible>

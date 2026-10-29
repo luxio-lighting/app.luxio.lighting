@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ESPLoader, Transport } from 'esptool-js';
 import { ESP32C6ROM } from 'esptool-js/lib/targets/esp32c6';
+import { parseSecurityFlags } from 'esptool-js/lib/types/securityInfo';
+import firmwareTargets from '../shared/firmware/targets.json';
+import { ESP32S31ROM } from 'esptool-js/lib/targets/esp32s31';
 import { ESP32C3ROM } from 'esptool-js/lib/targets/esp32c3';
 import { checkFlashSize, disconnectFlasher, resetFlasher } from '../src/flashing';
 import { DeviceConnection } from '../src/transport';
@@ -81,6 +84,7 @@ test('the actual flashing transport releases its USB lock before the app reconne
   };
   const transport = new Transport(port as unknown as SerialPort);
   await transport.connect();
+  void transport.readLoop();
   const flashingStream = port.readable!;
   assert.equal(flashingStream.locked, true);
   await disconnectFlasher(transport);
@@ -105,7 +109,33 @@ test('flasher cleanup releases an errored reader after USB disappears during res
   };
   const transport = new Transport(port as unknown as SerialPort);
   await transport.connect();
+  void transport.readLoop();
   incoming!.error(new Error('USB disconnected'));
   await disconnectFlasher(transport);
   assert.equal(closed, true);
+});
+
+
+test('S31 detection uses security chip ID 32, never the colliding P4 magic register', async () => {
+  const transport = new Transport({ getInfo: () => ({}) } as SerialPort);
+  transport.connect = async () => {};
+  transport.readLoop = async () => {};
+  const loader = new ESPLoader({ transport, baudrate: 115200, romBaudrate: 115200,
+    terminal: { clean() {}, write() {}, writeLine() {} } });
+  loader._connectAttempt = async () => 'success';
+  loader.getSecurityInfo = async () => ({ flags: 0, parsedFlags: parseSecurityFlags(0), flashCryptCnt: 0, keyPurposes: [], chipId: 32, apiVersion: 0 });
+  loader.readReg = async () => { throw new Error('Magic-register detection must not be used'); };
+  await loader.detectChip('no_reset', 1);
+  assert.ok(loader.chip instanceof ESP32S31ROM);
+  const target = firmwareTargets.find(target => target.chip === 'esp32s31')!;
+  assert.equal(loader.chip.IMAGE_CHIP_ID, target.imageChipId);
+  assert.equal(loader.chip.BOOTLOADER_FLASH_OFFSET, target.bootloaderAddress);
+  assert.equal(target.architecture, 'riscv');
+  const addresses: number[] = [];
+  loader.readReg = async address => { addresses.push(address); return address === 0x20501058 ? 0x1740ef : 0; };
+  loader.writeReg = async address => { addresses.push(address); };
+  assert.equal(await checkFlashSize(loader, target.minimumFlashSize), 8388608);
+  assert.ok(addresses.includes(0x20501058));
+  loader.readReg = async address => address === 0x20501058 ? 0x1640ef : 0;
+  await assert.rejects(checkFlashSize(loader, target.minimumFlashSize), /Detected 4 MB.*requires at least 8 MB/);
 });
