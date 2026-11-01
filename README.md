@@ -28,7 +28,7 @@ Open [app.luxio.lighting](https://app.luxio.lighting/) in an up-to-date Google C
 | USB / firmware installation | Desktop Chrome and a USB data cable. Choose **Connect via USB**, or **+** to install firmware. |
 | Simulator | No light or hardware connection required. |
 
-Safari cannot control a light’s local HTTP endpoint from the hosted HTTPS app. On iPhone or iPad, use the [Luxio iOS app](https://apps.apple.com/app/luxio/id6464080905). There is also a [Luxio Android app](https://play.google.com/store/apps/details?id=lighting.luxio.android).
+Safari cannot control a light’s local HTTP endpoint from the hosted HTTPS app. On iPhone or iPad, use the [Luxio iOS app](https://apps.apple.com/us/app/luxio/id6828093615). There is also a [Luxio Android app](https://play.google.com/store/apps/details?id=lighting.luxio).
 
 Browser support depends on the operating system. See Chrome’s documentation for [Bluetooth](https://developer.chrome.com/docs/capabilities/bluetooth), [USB serial](https://developer.chrome.com/docs/capabilities/serial), and [local network access](https://developer.chrome.com/blog/local-network-access).
 
