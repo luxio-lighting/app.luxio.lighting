@@ -1,13 +1,41 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowUpRight, RotateCcw, QrCode, ChevronDown, LockKeyhole, Check, Copy, LoaderCircle, RefreshCw, Wifi, Bluetooth, Usb } from 'lucide-react';
-import { Modal, Power } from './Controls';
+import { SheetButton, Modal, Power } from './Controls';
 import { discoverDevices, remove, send, type Light } from './model';
 import { configSchema, type WifiNetwork } from '../shared/protocol/src/index';
+
+const stripChannels: Record<string, string[]> = {
+  WS2811: ['red', 'green', 'blue'], WS2812: ['red', 'green', 'blue'], WS2812B: ['red', 'green', 'blue'],
+  WS2813: ['red', 'green', 'blue'], WS2815: ['red', 'green', 'blue'],
+  WS2814: ['red', 'green', 'blue', 'white'], SK6812: ['red', 'green', 'blue', 'white'],
+  WS2805: ['red', 'green', 'blue', 'cool', 'warm'],
+};
 
 export function Settings({ light, close, removed, notice }: { light: Light; close: () => void; removed: () => void; notice: (message: string) => void }) {
   // Build 37 can restore the old false capability flag from its OTA snapshot.
   const factoryResetSupported = light.state.factoryResetSupported || light.state.build === 37;
   const [config, setConfig] = useState(structuredClone(light.state.config));
+  const [savedConfig, setSavedConfig] = useState(structuredClone(light.state.config));
+  const [stripOpen, setStripOpen] = useState(false);
+  const [stripMenu, setStripMenu] = useState({ maxHeight: 280, above: false });
+  const stripPicker = useRef<HTMLDivElement>(null);
+  const stripTrigger = useRef<HTMLButtonElement>(null);
+  const stripList = useRef<HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    if (!stripOpen) return;
+    const trigger = stripTrigger.current!.getBoundingClientRect();
+    const body = stripPicker.current!.closest('.settings-body')!.getBoundingClientRect();
+    const below = body.bottom - trigger.bottom - 10;
+    const above = trigger.top - body.top - 10;
+    setStripMenu({ maxHeight: Math.min(280, Math.max(below, above)), above: above > below });
+  }, [stripOpen]);
+  useEffect(() => {
+    if (!stripOpen) return;
+    (stripList.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? stripList.current?.querySelector<HTMLElement>('[role="option"]'))?.focus();
+    const dismiss = (event: PointerEvent) => { if (!stripPicker.current?.contains(event.target as Node)) setStripOpen(false); };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [stripOpen]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmWifi, setConfirmWifi] = useState(false);
@@ -54,11 +82,15 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
   const [progress, setProgress] = useState<number | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; scanGeneration.current++; }; }, []);
-  const valid = configSchema.safeParse(config).success && new TextEncoder().encode(config.name.trim()).length <= 63 && (!config.relay?.enabled || config.relay.gpio !== config.gpio);
+  const parsedConfig = configSchema.safeParse(config);
+  const changed = JSON.stringify(parsedConfig.success ? parsedConfig.data : config) !== JSON.stringify(configSchema.safeParse(savedConfig).data ?? savedConfig);
+  const valid = parsedConfig.success && new TextEncoder().encode(config.name.trim()).length <= 63 && (!config.relay?.enabled || config.relay.gpio !== config.gpio);
 
   async function save() {
+    if (busy || !valid || !changed) return;
+    const submitted = configSchema.parse(config);
     setBusy(true); setError('');
-    try { await send(light, { operation: 3, config: configSchema.parse(config) }); close(); }
+    try { await send(light, { operation: 3, config: submitted }); setSavedConfig(submitted); }
     catch (error) { setError(`Couldn’t save settings. ${String(error)}`); }
     finally { setBusy(false); }
   }
@@ -69,7 +101,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
       <h3>Reset {light.state.config.name}?</h3>
       <p>This permanently deletes all settings, saved colors, gradients, animations, Wi-Fi credentials, Bluetooth bonds and Matter pairings. Luxio will restart and need to be set up again.</p>
       <p>The installed firmware stays on your device.</p>
-      <button type="button" className="danger-button full" disabled={busy} onClick={async () => {
+      <SheetButton type="button" variant="danger" disabled={busy} onClick={async () => {
         if (busy) return;
         setBusy(true); setError('');
         try {
@@ -77,8 +109,8 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
           removed(); notice('Factory reset requested. Luxio will restart. Reconnect using USB or Bluetooth to set it up again.');
         } catch (error) { setError(`Could not confirm the factory reset. Check the light before retrying. ${error instanceof Error ? error.message : String(error)}`); }
         finally { setBusy(false); }
-      }}>{busy ? <><LoaderCircle size={16} className="spinning" />Resetting…</> : 'Delete All Data & Reset'}</button>
-      <button type="button" autoFocus className="secondary-button full" disabled={busy} onClick={() => { setConfirmReset(false); setError(''); }}>Cancel</button>
+      }}>{busy ? <><LoaderCircle size={16} className="spinning" />Resetting…</> : 'Delete All Data & Reset'}</SheetButton>
+      <SheetButton type="button" autoFocus variant="secondary" disabled={busy} onClick={() => { setConfirmReset(false); setError(''); }}>Cancel</SheetButton>
     </div> : wifi ? <form className="wifi-form" onSubmit={async event => {
       event.preventDefault();
       if (busy || scanning || !selectedValue || !ssid) return;
@@ -169,11 +201,45 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
       {customNetwork && <input ref={customSsid} aria-label="Custom SSID" placeholder="Enter SSID" required maxLength={32} autoComplete="off" disabled={busy} value={ssid} onChange={event => setSsid(event.target.value)} />}
       {secured && <label className="wifi-password">Password<input required type="password" maxLength={64} autoComplete="new-password" disabled={busy} value={password} onChange={event => setPassword(event.target.value)} /></label>}
       <span id="wifi-scan-status" className="wifi-scan-status" role="status" aria-live="polite">{scanStatus}</span>
-      <button className="primary-button full" aria-busy={busy} disabled={busy || scanning || !selectedValue || !ssid || (secured && !password)}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : 'Connect'}</button>
-    </form> : update ? <div className="update-panel"><span className="empty-icon"><RefreshCw size={30} className={busy ? 'spinning' : ''} /></span><h3>{updateStatus === 'complete' ? 'Update Installed' : busy ? 'Installing Update' : 'Update Available'}</h3><p>{updateStatus === 'complete' ? `Luxio is now running build ${available}.` : `Build ${available} is ready to install. Keep Luxio powered on while it updates.`}</p>{progress !== null && <progress max={1} value={progress} aria-label="Download progress" />}{updateStatus && updateStatus !== 'complete' && <p role="status">{updateStatus}</p>}{!busy && updateStatus !== 'complete' && !updateStatus && <button className="primary-button full" onClick={() => void install()}>Install</button>}{!busy && light.address && updateStatus && updateStatus !== 'complete' && <a className="secondary-button" href={light.address} target="_blank" rel="noreferrer">Open Recovery <ArrowUpRight size={16} /></a>}{updateStatus === 'complete' && <button className="primary-button full" onClick={() => { setUpdate(false); setAvailable(0); }}>Done</button>}</div> : <>
+      <SheetButton aria-busy={busy} disabled={busy || scanning || !selectedValue || !ssid || (secured && !password)}>{busy ? <><LoaderCircle size={16} className="spinning" /> Connecting…</> : 'Connect'}</SheetButton>
+    </form> : update ? <div className="update-panel"><span className="empty-icon"><RefreshCw size={30} className={busy ? 'spinning' : ''} /></span><h3>{updateStatus === 'complete' ? 'Update Installed' : busy ? 'Installing Update' : 'Update Available'}</h3><p>{updateStatus === 'complete' ? `Luxio is now running build ${available}.` : `Build ${available} is ready to install. Keep Luxio powered on while it updates.`}</p>{progress !== null && <progress max={1} value={progress} aria-label="Download progress" />}{updateStatus && updateStatus !== 'complete' && <p role="status">{updateStatus}</p>}{!busy && updateStatus !== 'complete' && !updateStatus && <SheetButton onClick={() => void install()}>Install</SheetButton>}{!busy && light.address && updateStatus && updateStatus !== 'complete' && <a className="secondary-button" href={light.address} target="_blank" rel="noreferrer">Open Recovery <ArrowUpRight size={16} /></a>}{updateStatus === 'complete' && <SheetButton onClick={() => { setUpdate(false); setAvailable(0); }}>Done</SheetButton>}</div> : <>
       {!light.simulator && <><p className="field-label">CONNECTION</p><div className="group"><div className="setting-row"><span>Type</span><span className="muted">{light.transport === 'usb' ? <Usb size={15} /> : light.transport === 'bluetooth' ? <Bluetooth size={15} /> : <Wifi size={15} />} {light.transport === 'usb' ? 'USB' : light.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'}</span></div></div></>}
-      <form id="settings-form" onSubmit={event => { event.preventDefault(); if (!light.simulator && light.state.config.wifi?.enabled !== false && config.wifi?.enabled === false) setConfirmWifi(true); else void save(); }}>
-        <p className="field-label">LED STRIP</p><div className="group"><label className="setting-row"><span>Name</span><input aria-label="Device name" required maxLength={63} value={config.name} onChange={event => setConfig({ ...config, name: event.target.value })} /></label><label className="setting-row"><span>Type</span><select aria-label="Strip type" value={config.stripType} onChange={event => setConfig({ ...config, stripType: event.target.value as typeof config.stripType })}>{(light.state.supportedStripTypes?.length ? light.state.supportedStripTypes : [light.state.config.stripType]).map(type => <option key={type}>{type}</option>)}</select></label><label className="setting-row"><span>LED Count</span><input aria-label="LED Count" type="number" min={1} max={1024} required value={config.ledCount || ''} onChange={event => setConfig({ ...config, ledCount: Number(event.target.value) })} /></label>{!light.simulator && <label className="setting-row"><span>Data Pin</span><input aria-label="Data Pin" type="number" min={0} max={61} required value={config.gpio} onChange={event => setConfig({ ...config, gpio: Number(event.target.value) })} /></label>}</div>
+      <form id="settings-form" onSubmit={event => { event.preventDefault(); if (busy || !valid || !changed) return; if (!light.simulator && light.state.config.wifi?.enabled !== false && config.wifi?.enabled === false) setConfirmWifi(true); else void save(); }}>
+        <p className="field-label">LED STRIP</p><div className="group strip-settings"><label className="setting-row"><span>Name</span><input aria-label="Device name" required maxLength={63} value={config.name} onChange={event => setConfig({ ...config, name: event.target.value })} /></label><div className="setting-row"><span id="strip-type-label">Type</span>
+          <div className="strip-picker" ref={stripPicker} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setStripOpen(false); }} onKeyDown={event => {
+            if (event.key === 'Escape' && stripOpen) { event.preventDefault(); event.stopPropagation(); setStripOpen(false); stripTrigger.current?.focus(); }
+          }}>
+            <button ref={stripTrigger} type="button" className="strip-select" aria-label={`Strip type: ${config.stripType}`} aria-haspopup="listbox" aria-expanded={stripOpen} aria-controls="strip-type-options" onClick={() => setStripOpen(!stripOpen)} onKeyDown={event => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setStripOpen(true); }
+            }}>
+              <span className="strip-led" role="img" aria-label={stripChannels[config.stripType]?.map(channel => channel === 'warm' || channel === 'cool' ? `${channel} white` : channel).join(', ')}>
+                {stripChannels[config.stripType]?.map(channel => <span key={channel} className={`led-${channel}`} />)}
+              </span>
+              <span>{config.stripType}</span><ChevronDown size={14} />
+            </button>
+            <ul ref={stripList} id="strip-type-options" className="strip-options" style={{ maxHeight: stripMenu.maxHeight, ...(stripMenu.above ? { top: 'auto', bottom: 'calc(100% + 5px)' } : {}) }} role="listbox" aria-labelledby="strip-type-label" hidden={!stripOpen} onKeyDown={event => {
+              const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]'));
+              const index = items.indexOf(document.activeElement as HTMLElement);
+              if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); items[index]?.click(); }
+              else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+              } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+                [...items.slice(index + 1), ...items.slice(0, index + 1)].find(item => item.textContent?.trim().toLowerCase().startsWith(event.key.toLowerCase()))?.focus();
+              }
+            }}>
+              {(light.state.supportedStripTypes?.length ? light.state.supportedStripTypes : [...new Set(['WS2805', 'WS2814', 'WS2812', 'SK6812', light.state.config.stripType])]).map(type => <li key={type} role="option" tabIndex={-1} aria-selected={config.stripType === type} onClick={() => {
+                setConfig({ ...config, stripType: type }); setStripOpen(false); stripTrigger.current?.focus();
+              }}>
+                <span className="strip-led" role="img" aria-label={stripChannels[type]?.map(channel => channel === 'warm' || channel === 'cool' ? `${channel} white` : channel).join(', ')}>
+                  {stripChannels[type]?.map(channel => <span key={channel} className={`led-${channel}`} />)}
+                </span>
+                <span>{type}</span>{config.stripType === type && <Check size={14} />}
+              </li>)}
+            </ul>
+          </div>
+        </div><label className="setting-row"><span>LED Count</span><input aria-label="LED Count" type="number" min={1} max={1024} required value={config.ledCount || ''} onChange={event => setConfig({ ...config, ledCount: Number(event.target.value) })} /></label>{!light.simulator && <label className="setting-row"><span>Data Pin</span><input aria-label="Data Pin" type="number" min={0} max={61} required value={config.gpio} onChange={event => setConfig({ ...config, gpio: Number(event.target.value) })} /></label>}</div>
         {!light.simulator && <>
           <p className="field-label">RELAY</p><div className="group"><div className="setting-row"><span>Enable Relay</span><Power label="Enable Relay" on={config.relay?.enabled ?? false} disabled={light.state.build < 27} change={enabled => setConfig({ ...config, relay: { gpio: 0, inverted: false, ...config.relay, enabled } })} /></div>{config.relay?.enabled && <><label className="setting-row"><span>Relay GPIO</span><input aria-label="Relay GPIO" type="number" required min={0} max={61} value={config.relay.gpio} onChange={event => setConfig({ ...config, relay: { ...config.relay!, gpio: Number(event.target.value) } })} /></label><div className="setting-row"><span>Invert Relay</span><Power label="Invert Relay" on={config.relay.inverted} change={inverted => setConfig({ ...config, relay: { ...config.relay!, inverted } })} /></div></>}</div><p className="field-note">A relay switches power to the LED strip. Its GPIO must differ from Data Pin.{light.state.build < 27 ? ' Requires firmware build 27 or newer.' : ''}</p>
           <p className="field-label">WI-FI</p><div className="group"><div className="setting-row"><span>Enable Wi-Fi</span><Power label="Enable Wi-Fi" disabled={light.state.build < 34} on={config.wifi?.enabled !== false} change={enabled => setConfig({ ...config, wifi: { enabled } })} /></div>{config.wifi?.enabled !== false && <><div className="setting-row"><span>SSID</span><span className="muted">{light.network?.ssid || '—'}</span></div><div className="setting-row"><span>IP Address</span><span className="muted">{light.state.lanIp || (light.address ? new URL(light.address).hostname : '—')}</span></div><div className="setting-row"><span>Gateway</span><span className="muted">{light.network?.gateway || '—'}</span></div><div className="setting-row"><span>DNS</span><span className="muted">{light.network?.dns?.join(', ') || '—'}</span></div><button type="button" className="link-row" disabled={busy || light.state.build < 24} onClick={() => { setWifi(true); void scanWifi(); }}><span className="settings-action"><Wifi size={16} />Configure Wi-Fi</span></button></>}</div><p className="field-note">Changing Enable Wi-Fi restarts Luxio. Reconnect using Bluetooth or USB to re-enable Wi-Fi.</p>
@@ -188,7 +254,7 @@ export function Settings({ light, close, removed, notice }: { light: Light; clos
     {error && <p className="error" role="alert">{error}</p>}
     {confirmWifi && <div className="inline-confirm" role="alert"><h3>Disable Wi-Fi?</h3><p>Saving will restart Luxio and disconnect this browser and Matter. Reconnect using Bluetooth or USB to enable Wi-Fi again.</p><button className="danger-button" disabled={busy} onClick={() => { setConfirmWifi(false); void save(); }}>Disable Wi-Fi</button><button className="text-button" onClick={() => setConfirmWifi(false)}>Cancel</button></div>}
     {light.simulator && confirmRemove && <div className="inline-confirm" role="alert"><h3>Remove Simulator?</h3><p>Its settings and saved library will be removed from this browser.</p><button className="danger-button" onClick={() => { remove(light); removed(); }}>Remove</button><button className="text-button" onClick={() => setConfirmRemove(false)}>Cancel</button></div>}
-  </div>{!wifi && !update && !confirmReset && <footer className="settings-save"><button type="submit" form="settings-form" className="primary-button full" disabled={!valid || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Saving…</> : 'Save'}</button></footer>}</Modal>;
+  </div>{!wifi && !update && !confirmReset && <footer className="settings-save"><SheetButton type="submit" form="settings-form" disabled={!valid || !changed || busy}>{busy ? <><LoaderCircle size={16} className="spinning" /> Saving…</> : 'Save'}</SheetButton></footer>}</Modal>;
 
   async function scanWifi() {
     if (scanning) return;

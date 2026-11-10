@@ -20,14 +20,24 @@ for (const [build, capability, supported] of [
 });
 
 
-for (const supportedStripTypes of [['WS2811', 'WS2815', 'FUTURE'], [], undefined]) {
+for (const supportedStripTypes of [['WS2811', 'WS2815', 'FUTURE'], ['WS2811'], [], undefined]) {
   test(`strip dropdown uses firmware capabilities: ${JSON.stringify(supportedStripTypes)}`, () => {
     const light: Light = { id: 'test', address: '', online: true,
       state: { build: 39, supportedStripTypes, deviceId: 'test', config: { name: 'Test', stripType: 'WS2811', ledCount: 60, gpio: 16, channel: 0 }, on: true, brightness: 100, color: { red: 255, green: 0, blue: 0, white: 0, warmWhite: 0, coolWhite: 0 }, activeScriptId: '', lanIp: '' },
       library: { colors: [], gradients: [], scripts: [] } };
     const html = renderToStaticMarkup(createElement(Settings, { light, close() {}, removed() {}, notice() {} }));
-    const select = html.match(/<select aria-label="Strip type"[^>]*>(.*?)<\/select>/)![1];
-    const types = [...select.matchAll(/<option[^>]*>(.*?)<\/option>/g)].map(match => match[1]);
-    assert.deepEqual(types, supportedStripTypes?.length ? supportedStripTypes : ['WS2811']);
+    const select = html.match(/<ul[^>]*id="strip-type-options"[^>]*>(.*?)<\/ul>/)![1];
+    const types = [...select.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(match => match[1].replace(/<[^>]+>/g, ''));
+    assert.deepEqual(types, supportedStripTypes?.length ? supportedStripTypes : ['WS2805', 'WS2814', 'WS2812', 'SK6812', 'WS2811']);
   });
 }
+
+test('legacy Gledopto firmware offers all four supported types without duplicating its current type', () => {
+  const light: Light = { id: 'legacy', address: '', online: true,
+    state: { build: 37, deviceId: 'legacy', config: { name: 'Gledopto', stripType: 'WS2814', ledCount: 60, gpio: 16, channel: 0 }, on: true, brightness: 100, color: { red: 255, green: 0, blue: 0, white: 0, warmWhite: 0, coolWhite: 0 }, activeScriptId: '', lanIp: '' },
+    library: { colors: [], gradients: [], scripts: [] } };
+  const html = renderToStaticMarkup(createElement(Settings, { light, close() {}, removed() {}, notice() {} }));
+  const list = html.match(/<ul[^>]*id="strip-type-options"[^>]*>(.*?)<\/ul>/)![1];
+  const types = [...list.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map(match => match[1].replace(/<[^>]+>/g, ''));
+  assert.deepEqual(types, ['WS2805', 'WS2814', 'WS2812', 'SK6812']);
+});

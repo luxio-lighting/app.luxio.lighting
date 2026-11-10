@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Minus, Plus, Sun, X } from 'lucide-react';
 import { colorCSS, emptyColor, paletteCSS, type Light } from './model';
 import type { Color } from '../shared/protocol/src/index';
+
+export function SheetButton({ variant = 'primary', className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) {
+  return <button {...props} className={`${variant}-button full sheet-button ${className}`} />;
+}
 
 export function Modal({ title, children, close, className = '' }: { title: string; children: ReactNode; close: () => void; className?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
