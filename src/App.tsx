@@ -42,6 +42,9 @@ export default function App() {
     const timer = setInterval(() => { if (!document.hidden) for (const light of lights) void refresh(light).catch(() => {}); }, 4000);
     return () => { clearInterval(timer); discoverAbort.current?.abort(); window.removeEventListener('popstate', navigate); };
   }, []);
+  useEffect(() => {
+    if (selected && !selectedLight) { setSelected(''); setSettings(false); history.replaceState({}, '', location.pathname); }
+  }, [selected, selectedLight]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 8000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
     const observer = new MutationObserver(() => setToastTarget(document.querySelector('dialog[open]') ?? document.body));

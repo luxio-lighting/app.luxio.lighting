@@ -10,7 +10,11 @@ const originalOpen = DeviceConnection.prototype.open;
 const originalRequest = DeviceConnection.prototype.request;
 const originalClose = DeviceConnection.prototype.close;
 const base: State = { deviceId: 'shared-board', build: 36, config: { name: 'Desk', stripType: 'WS2805', ledCount: 60, gpio: 16, channel: 100 }, brightness: 180, on: true, color: { red: 0, green: 210, blue: 255, white: 0, warmWhite: 0, coolWhite: 0 }, activeScriptId: '', lanIp: '192.0.2.5', mode: 0 };
-const memory = new Map([['luxio-app-v1', JSON.stringify([{ id: 'legacy-board', address: 'http://192.0.2.6', transport: 'usb', state: { ...base, deviceId: 'legacy-board' }, library: { colors: [], gradients: [], scripts: [] } }])]]);
+const memory = new Map([['luxio-app-v1', JSON.stringify([
+  { id: 'legacy-board', address: 'http://192.0.2.6', transport: 'usb', online: true, state: { ...base, deviceId: 'legacy-board' }, library: { colors: [], gradients: [], scripts: [] } },
+  { id: 'offline-board', address: 'http://192.0.2.9', online: false, state: { ...base, deviceId: 'offline-board' }, library: { colors: [], gradients: [], scripts: [] } },
+  { id: 'saved-simulator', address: '', simulator: true, online: true, state: { ...base, deviceId: 'simulator' }, library: { colors: [{ id: '723cfad0-dc2a-45bd-ab77-076003ac230e', name: 'Favorite', color: base.color }], gradients: [], scripts: [] } },
+])]]);
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => memory.get(key) ?? null, setItem: (key: string, value: string) => memory.set(key, value) } });
 const usb = {}, bluetooth = {};
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'Chrome/142', serial: { requestPort: async () => usb }, bluetooth: { requestDevice: async () => bluetooth } } });
@@ -43,20 +47,19 @@ DeviceConnection.prototype.request = async function (request) { return respond(t
 DeviceConnection.prototype.close = async function () { this.ondisconnect?.(); };
 globalThis.fetch = async (_url, init) => new Response(new Uint8Array(encodeResponse(await respond('wifi', decodeRequest(new Uint8Array(init!.body as Uint8Array))))).buffer);
 
-test('legacy USB entries migrate without losing the Wi-Fi entry or duplicating the transport', () => {
-  const wifi = model.lights.find(light => light.id === 'legacy-board')!;
-  const usb = model.lights.find(light => light.id === 'usb:legacy-board')!;
-  assert.ok(wifi); assert.ok(usb);
-  assert.equal(wifi.transport, undefined); assert.equal(wifi.address, 'http://192.0.2.6');
-  assert.equal(usb.transport, 'usb'); assert.equal(usb.address, '');
-  assert.equal(wifi.online, false); assert.equal(usb.online, false);
+test('offline and direct connections are not restored; simulator data is preserved', () => {
+  assert.equal(model.lights.some(light => light.state.deviceId === 'legacy-board'), false);
+  assert.equal(model.lights.some(light => light.id === 'offline-board'), false);
+  assert.equal(model.lights.find(light => light.id === 'saved-simulator')?.library.colors[0].name, 'Favorite');
+  model.publish();
+  assert.deepEqual(JSON.parse(memory.get('luxio-app-v1')!).map((entry: { id: string }) => entry.id), ['saved-simulator']);
 });
 
 test('Wi-Fi, USB, and Bluetooth keep distinct entries, synchronize state and libraries, and retain independent availability', async () => {
   const [wifi] = model.discoverDevices([{ deviceId: state.deviceId, lan_ip: '192.0.2.5', name: 'Desk' }]);
   const [other] = model.discoverDevices([{ deviceId: 'other-board', lan_ip: '192.0.2.7', name: 'Other' }]);
   await model.refresh(wifi);
-  const usbLight = await model.findDevice('usb');
+  let usbLight = await model.findDevice('usb');
   const usbConnection = connections.get(usbLight.id);
   const bleLight = await model.findDevice('bluetooth');
   assert.equal(usbLight.id, 'usb:shared-board'); assert.equal(bleLight.id, 'bluetooth:shared-board');
@@ -101,7 +104,7 @@ test('Wi-Fi, USB, and Bluetooth keep distinct entries, synchronize state and lib
 
   const originalBle = connections.get(bleLight.id);
   assert.equal(await model.connect('192.0.2.5'), wifi);
-  assert.equal(await model.findDevice('usb'), usbLight);
+  usbLight = await model.findDevice('usb', {} as SerialPort);
   assert.equal(connections.get(bleLight.id), originalBle);
   assert.equal(model.lights.filter(light => light.state.deviceId === state.deviceId).length, 3);
   model.discoverDevices([{ deviceId: state.deviceId, lan_ip: '192.0.2.8', name: 'Desk' }]);
@@ -109,14 +112,20 @@ test('Wi-Fi, USB, and Bluetooth keep distinct entries, synchronize state and lib
 
   await connections.get(usbLight.id)!.close();
   assert.equal(usbLight.online, false); assert.equal(wifi.online, true); assert.equal(bleLight.online, true);
+  assert.equal(model.lights.includes(usbLight), false);
   failWifi = true;
   await assert.rejects(model.refresh(wifi), /Wi-Fi unavailable/);
   assert.equal(wifi.online, false); assert.equal(bleLight.online, true);
+  assert.equal(model.lights.includes(wifi), false);
+  assert.equal(JSON.parse(memory.get('luxio-app-v1')!).some((entry: { id: string }) => entry.id === wifi.id || entry.id === usbLight.id), false);
   await model.send(bleLight, { operation: 15, on: true });
-  assert.equal(usbLight.state.on, true); assert.equal(wifi.state.on, true);
-  assert.equal(usbLight.online, false); assert.equal(wifi.online, false);
-  assert.equal(await model.findDevice('usb'), usbLight);
-  assert.equal(usbLight.online, true); assert.equal(wifi.online, false);
+  const reconnected = await model.findDevice('usb');
+  assert.equal(reconnected.id, usbLight.id);
+  assert.equal(reconnected.online, true);
+  assert.equal(reconnected.state.on, true);
+  assert.equal(model.lights.filter(light => light.id === reconnected.id).length, 1);
+  assert.equal(model.lights.includes(wifi), false);
+
 });
 
 

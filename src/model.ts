@@ -28,6 +28,8 @@ try {
   const stored = JSON.parse(localStorage.getItem('luxio-app-v1') ?? '[]');
   if (Array.isArray(stored)) for (const light of stored) {
     try {
+      // Direct connections cannot survive a reload; offline devices must be rediscovered.
+      if (!light.simulator && (!light.online || light.transport)) continue;
       if (typeof light.id !== 'string' || typeof light.address !== 'string') continue;
       light.state.config = configSchema.parse(light.state.config);
       light.state.color = colorSchema.parse(light.state.color);
@@ -42,14 +44,6 @@ try {
       if (light.source) parseParameters(light.source, light.state.parameters);
       light.online = Boolean(light.simulator);
       if (light.simulator) light.state.supportedStripTypes = [...simulatorStripTypes];
-      if (!light.simulator && light.transport) {
-        // Older versions replaced the Wi-Fi entry with a direct connection.
-        if (light.id === light.state.deviceId && light.address && !lights.some(item => item.id === light.state.deviceId)) {
-          lights.push({ ...light, id: light.state.deviceId, transport: undefined });
-        }
-        light.id = `${light.transport}:${light.state.deviceId}`;
-        light.address = '';
-      }
       if (!lights.some(item => item.id === light.id)) lights.push(light);
     } catch { /* A malformed device must not prevent other devices from loading. */ }
   }
@@ -58,7 +52,7 @@ try {
 export function publish() {
   lights = [...lights];
   try {
-    localStorage.setItem('luxio-app-v1', JSON.stringify(lights));
+    localStorage.setItem('luxio-app-v1', JSON.stringify(lights.filter(light => light.simulator || (light.online && !light.transport))));
     for (const [id, expires] of resetDevices) if (expires <= Date.now()) resetDevices.delete(id);
     localStorage.setItem('luxio-reset-devices-v1', JSON.stringify([...resetDevices]));
   }
@@ -137,10 +131,12 @@ export async function findDevice(kind: 'usb' | 'bluetooth', port?: SerialPort) {
       light = { id: entryId, address: '', online: true, state: response.state, library: lights.find(item => !item.simulator && item.state.deviceId === response.state!.deviceId)?.library ?? { colors: [], gradients: [], scripts: [] } };
       lights.push(light);
     }
-    await connections.get(light.id)?.close();
+    const previous = connections.get(light.id);
+    connections.delete(light.id);
+    await previous?.close();
     Object.assign(light, { state: response.state, stateKnown: true, online: true, transport: kind, source: undefined, animationError: response.animationError, network: response.networkStatus });
     connections.set(light.id, connection);
-    connection.ondisconnect = () => { if (connections.get(light!.id) === connection) { connections.delete(light!.id); light!.online = false; publish(); } };
+    connection.ondisconnect = () => { if (connections.get(light!.id) === connection) { connections.delete(light!.id); light!.online = false; lights = lights.filter(item => item !== light); publish(); } };
     // The handshake identifies the board. Read again in its shared queue so an
     // older handshake cannot overwrite a change made through another connection.
     await send(light, { operation: 0 }); return light;
@@ -204,7 +200,10 @@ export function send(light: Light, payload: Omit<Request, 'id'>): Promise<Respon
           Object.assign(peer, { state: light.state, stateKnown: light.stateKnown, source: light.source, animationError: light.animationError, network: light.network });
         }
       } catch (error) {
-        if (payload.operation === 0) light.online = false;
+        if (payload.operation === 0) {
+          light.online = false;
+          if (!needsChrome(light)) lights = lights.filter(item => item !== light);
+        }
         publish(); throw error;
       }
     } else {

@@ -103,7 +103,7 @@ test('Setup hands an already selected USB port to the app without another picker
     assert.equal(light.id, 'usb:setup-handoff'); assert.equal(light.transport, 'usb'); assert.equal(light.online, true);
     const previous = connections.get(light.id);
     const same = await findDevice('usb', port as unknown as SerialPort);
-    assert.equal(same, light); assert.notEqual(connections.get(light.id), previous);
+    assert.equal(same.id, light.id); assert.equal(same.online, true); assert.equal(light.online, false); assert.notEqual(connections.get(light.id), previous);
     assert.equal(pickerCalls, 0); assert.equal(opens, 2); assert.equal(closes, 1);
     await connections.get(light.id)?.close(); remove(light);
     assert.equal(closes, 2);

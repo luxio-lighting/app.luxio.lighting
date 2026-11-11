@@ -132,21 +132,42 @@ test('invalid changes do not corrupt the simulator and removal persists', async 
   assert.deepEqual(JSON.parse(memory.get('luxio-app-v1')!), []);
 });
 
-test('directory devices remain visible without HTTP access and reconnect by stable device ID', async () => {
+test('Safari discovery entries remain visible without being saved as online devices', async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = () => { throw new Error('Safari blocked HTTP'); };
+  const oldLocation = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  const oldNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'location', { value: { protocol: 'https:' }, configurable: true });
+  Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'AppleWebKit Version/26 Safari/605' }, configurable: true });
+  globalThis.fetch = () => { throw new Error('Unexpected HTTP request in Safari'); };
   try {
-    const devices = model.discoverDevices([{ deviceId: 'directory-test', name: 'Luxio S3 mini', lan_ip: '192.168.1.50', build: 35 }]);
-    assert.equal(devices.length, 1);
-    assert.equal(devices[0].online, false);
-    assert.equal(devices[0].stateKnown, false);
-    assert.equal(devices[0].state.config.name, 'Luxio S3 mini');
-    await assert.rejects(model.refresh(devices[0]), /blocked HTTP/);
-    assert.ok(model.snapshot().includes(devices[0]));
+    const [device] = model.discoverDevices([{ deviceId: 'directory-test', name: 'Luxio S3 mini', lan_ip: '192.168.1.50', build: 35 }]);
+    await model.refresh(device);
+    assert.ok(model.snapshot().includes(device));
+    assert.equal(device.stateKnown, false);
+    assert.equal(JSON.parse(memory.get('luxio-app-v1')!).some((item: { id: string }) => item.id === device.id), false);
     model.discoverDevices([{ deviceId: 'directory-test', name: 'Luxio S3 mini', lan_ip: '192.168.1.51', build: 35 }]);
     assert.equal(model.snapshot().filter(d => d.id === 'directory-test').length, 1);
-    assert.equal(devices[0].address, 'http://192.168.1.51');
-    model.remove(devices[0]);
+    assert.equal(device.address, 'http://192.168.1.51');
+    model.remove(device);
+  } finally {
+    globalThis.fetch = original;
+    if (oldLocation) Object.defineProperty(globalThis, 'location', oldLocation); else Reflect.deleteProperty(globalThis, 'location');
+    if (oldNavigator) Object.defineProperty(globalThis, 'navigator', oldNavigator); else Reflect.deleteProperty(globalThis, 'navigator');
+  }
+});
+
+test('unreachable discovery entries are removed and can be rediscovered', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = () => { throw new Error('Device is offline'); };
+  try {
+    const [device] = model.discoverDevices([{ deviceId: 'offline-test', lan_ip: '192.0.2.99' }]);
+    await assert.rejects(model.refresh(device), /offline/);
+    assert.equal(model.snapshot().includes(device), false);
+    assert.equal(JSON.parse(memory.get('luxio-app-v1')!).some((item: { id: string }) => item.id === device.id), false);
+    const [rediscovered] = model.discoverDevices([{ deviceId: 'offline-test', lan_ip: '192.0.2.100' }]);
+    assert.equal(rediscovered.id, device.id);
+    assert.equal(rediscovered.address, 'http://192.0.2.100');
+    model.remove(rediscovered);
   } finally { globalThis.fetch = original; }
 });
 
