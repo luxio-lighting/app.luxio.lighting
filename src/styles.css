@@ -6,7 +6,7 @@
   --accent: #00d2ff; --luxio-gradient: linear-gradient(45deg, #00d2ff, #4fff7f); --radius: .4rem;
 }
 /* Shared pressed feedback for the app and embedded animation designer. */
-:is(button, a[href], summary, [role=button], [role=option], [role=menuitem], [role=tab]):not(:disabled):not([aria-disabled=true]):not([data-disabled]):active { filter: brightness(.78); transition-duration: 0s; }
+:is(button, a[href], summary, [role=button], [role=option], [role=menuitem], [role=tab]):not(:disabled):not([aria-disabled=true]):not([data-disabled]):active { filter: brightness(.9); transition-duration: 0s; }
 @scope (:root) to (.studio-scope) {
 * { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }
@@ -405,11 +405,12 @@ input::placeholder { color: var(--muted); }
 .flash-log pre { max-height: 140px; overflow: auto; font-size: 10px; line-height: 1.5; margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .flash-log summary { cursor: pointer; }
 
-.icon-button:active:not(:disabled), .preset-options:active:not(:disabled), .link-row:active:not(:disabled), .wifi-refresh:active:not(:disabled) { background: #0004; }
-.secondary-button:active:not(:disabled), .strip-options [role=option]:active, .wifi-options [role=option]:active { background: #1a1a1a; }
-.mode-picker button:active:not(:disabled) { background: #0004; }
-.device-card:has(.device-open:active:not(:disabled)) .light-backdrop { filter: brightness(.78); }
-.preset-card:has(.preset-main:active:not(:disabled)), .save-card:active:not(:disabled) { background: #111; border-radius: 8px; }
+.icon-button:active:not(:disabled), .preset-options:active:not(:disabled), .link-row:active:not(:disabled), .wifi-refresh:active:not(:disabled) { background: #ffffff0a; }
+.secondary-button:active:not(:disabled), .strip-options [role=option]:active, .wifi-options [role=option]:active { background: #363636; }
+.mode-picker button:active:not(:disabled) { background: #ffffff18; }
+.mode-picker button[aria-selected=true]:active:not(:disabled) { background: #ffffff2b; }
+.device-card:has(.device-open:active:not(:disabled)) .light-backdrop { filter: brightness(.9); }
+.preset-card:has(.preset-main:active:not(:disabled)), .save-card:active:not(:disabled) { background: #1e1e1e; border-radius: 8px; }
 
 }
 .studio-overlay { --studio-margin: clamp(16px, 4vw, 38px); position: fixed; inset: 0; margin: auto; padding: 0; width: calc(100vw - 2 * var(--studio-margin)); height: calc(100dvh - 2 * var(--studio-margin)); max-width: none; max-height: none; border: 1px solid #ffffff20; border-radius: 18px; background: #141414; color: #fff; overflow: hidden; box-shadow: 0 24px 80px #0008; }
